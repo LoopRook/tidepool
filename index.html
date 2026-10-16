@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="An artificial-life tide pool: creatures with genomes and tiny brains evolve into named species.">
+<title>Tidepool</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="brand">
+      <h1>Tidepool</h1>
+      <p class="sub">Tiny-brained creatures evolving in a sunlit pool</p>
+    </div>
+    <dl class="stats" aria-live="off">
+      <div><dt>Day</dt><dd id="stat-day">0</dd></div>
+      <div><dt>Tick</dt><dd id="stat-tick">0</dd></div>
+      <div><dt>Alive</dt><dd id="stat-pop">0</dd></div>
+      <div><dt>Species</dt><dd id="stat-species">0</dd></div>
+      <div><dt>Seed</dt><dd id="stat-seed">-</dd></div>
+    </dl>
+    <div class="controls">
+      <button type="button" id="btn-play" class="btn play" title="Pause (Space)" aria-label="Pause">
+        <svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3" width="3" height="10" rx="1"/><rect x="9.5" y="3" width="3" height="10" rx="1"/></svg>
+        <svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.6-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z"/></svg>
+      </button>
+      <div class="seg" id="speed" role="group" aria-label="Simulation speed">
+        <button type="button" data-speed="1" class="on" title="1x (key 1)">1&times;</button>
+        <button type="button" data-speed="4" title="4x (key 2)">4&times;</button>
+        <button type="button" data-speed="16" title="16x (key 3)">16&times;</button>
+        <button type="button" data-speed="64" title="64x (key 4)">64&times;</button>
+      </div>
+      <span class="eff" id="stat-eff" title="Actual speed (stepping is capped to keep the page responsive)"></span>
+      <button type="button" id="btn-follow" class="btn toggle" aria-pressed="false" title="Keep the selected creature centred (F)">Follow</button>
+      <button type="button" id="btn-fit" class="btn" title="Show the whole pool (0)">Fit</button>
+      <button type="button" id="btn-seed" class="btn" title="Start a new pool with a fresh seed (N)">New seed</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <canvas id="pool" aria-label="The tide pool. Drag to pan, scroll to zoom, click a creature to inspect it."></canvas>
+    <div class="paused-badge">Paused</div>
+    <p class="hint" id="hint">Drag to pan &middot; scroll to zoom &middot; click a creature</p>
+  </main>
+
+  <aside class="panel">
+    <section class="card inspector" id="inspector" aria-label="Inspector"></section>
+    <section class="card">
+      <h2>Population</h2>
+      <div class="chart-wrap"><canvas id="chart" aria-label="Population by species over time"></canvas></div>
+      <div class="chart-axis"><span id="chart-start"></span><span id="chart-max"></span><span id="chart-end"></span></div>
+    </section>
+    <section class="card">
+      <h2>Field guide <span class="count" id="guide-count"></span></h2>
+      <ul class="guide" id="guide"></ul>
+    </section>
+    <section class="card">
+      <h2>Journal</h2>
+      <ol class="journal" id="journal"></ol>
+    </section>
+  </aside>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
