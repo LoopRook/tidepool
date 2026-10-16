@@ -1,0 +1,3330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="An artificial-life tide pool: creatures with genomes and tiny brains evolve into named species.">
+<title>Tidepool</title>
+<style>
+:root {
+  --bg: #03141a;
+  --bg-2: #062029;
+  --glass: rgba(14, 44, 52, 0.58);
+  --glass-hi: rgba(26, 70, 78, 0.55);
+  --line: rgba(160, 230, 220, 0.09);
+  --line-2: rgba(160, 230, 220, 0.18);
+  --ink: #dcefea;
+  --ink-2: #9dbdb8;
+  --ink-3: #6c8f8b;
+  --accent: #ffd59a;     /* sunlight */
+  --accent-2: #8fe3cf;   /* sea glass */
+  --danger: #ff9b86;
+  --pos: #f2b867;
+  --neg: #6fcde8;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  --panel-w: 380px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  background: radial-gradient(120% 90% at 30% 0%, #0a2f38 0%, var(--bg) 60%) fixed, var(--bg);
+  color: var(--ink);
+  font: 14px/1.45 var(--sans);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--panel-w);
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* ---------- header ---------- */
+
+.bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px 28px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(8, 34, 42, 0.95), rgba(4, 22, 28, 0.9));
+  flex-wrap: wrap;
+}
+
+.brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.brand h1 {
+  margin: 0;
+  font: 600 22px/1 var(--serif);
+  letter-spacing: 0.01em;
+  color: var(--accent);
+  text-shadow: 0 0 18px rgba(255, 200, 120, 0.25);
+}
+.brand .sub { margin: 0; color: var(--ink-3); font-size: 13px; font-style: italic; font-family: var(--serif); }
+
+.stats { display: flex; gap: 18px; margin: 0; }
+.stats div { display: flex; flex-direction: column; gap: 1px; }
+.stats dt { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+.stats dd { margin: 0; font: 500 14px/1.2 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+
+.controls { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+
+.btn, .seg button {
+  appearance: none;
+  font: 500 13px/1 var(--sans);
+  color: var(--ink);
+  background: var(--glass);
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  height: 32px;
+  padding: 0 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn:hover, .seg button:hover { background: var(--glass-hi); border-color: rgba(160, 230, 220, 0.3); }
+.btn:focus-visible, .seg button:focus-visible, .guide li:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.btn.play { width: 38px; padding: 0; display: grid; place-items: center; color: var(--accent); }
+.btn.play svg { width: 16px; height: 16px; fill: currentColor; }
+.btn.play .i-play { display: none; }
+.paused .btn.play .i-play { display: block; }
+.paused .btn.play .i-pause { display: none; }
+.btn.toggle[aria-pressed="true"] { background: rgba(143, 227, 207, 0.16); border-color: rgba(143, 227, 207, 0.55); color: var(--accent-2); }
+
+.seg { display: inline-flex; }
+.seg button { border-radius: 0; margin-left: -1px; font-family: var(--mono); font-size: 12px; padding: 0 10px; }
+.seg button:first-child { border-radius: 8px 0 0 8px; margin-left: 0; }
+.seg button:last-child { border-radius: 0 8px 8px 0; }
+.seg button.on { background: rgba(255, 213, 154, 0.16); border-color: rgba(255, 213, 154, 0.5); color: var(--accent); position: relative; }
+.eff { font: 12px var(--mono); color: var(--ink-3); min-width: 3.5em; }
+
+/* ---------- stage ---------- */
+
+.stage { position: relative; min-width: 0; min-height: 0; background: #020d12; overflow: hidden; }
+#pool { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#pool.dragging { cursor: grabbing; }
+#pool.over { cursor: pointer; }
+.hint {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+  margin: 0; padding: 6px 12px; border-radius: 999px;
+  background: rgba(2, 18, 24, 0.6); border: 1px solid var(--line);
+  color: var(--ink-2); font-size: 12px; white-space: nowrap; pointer-events: none;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  transition: opacity 0.8s;
+}
+.hint.gone { opacity: 0; }
+.paused-badge {
+  position: absolute; top: 12px; left: 12px; padding: 4px 10px; border-radius: 6px;
+  font: 600 11px/1.4 var(--sans); letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--accent); background: rgba(2, 18, 24, 0.65); border: 1px solid rgba(255, 213, 154, 0.3);
+  display: none; pointer-events: none;
+}
+.paused .paused-badge { display: block; }
+
+/* ---------- side panel ---------- */
+
+.panel {
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-left: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(6, 30, 38, 0.92), rgba(3, 18, 24, 0.96));
+  scrollbar-width: thin;
+  scrollbar-color: rgba(160, 230, 220, 0.2) transparent;
+}
+
+.card {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px rgba(0, 0, 0, 0.18);
+  min-width: 0;
+}
+.card h2 {
+  margin: 0 0 10px;
+  font: 600 11px/1 var(--sans);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  display: flex; align-items: baseline; gap: 8px;
+}
+.card h2 .count { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink-3); }
+
+/* inspector */
+.inspector .empty { color: var(--ink-3); margin: 2px 0 2px; font-family: var(--serif); font-style: italic; font-size: 15px; }
+.inspector .empty b { display: block; font-style: normal; color: var(--ink-2); font-family: var(--sans); font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.ins-head { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 12px; align-items: center; }
+.ins-head canvas { width: 72px; height: 52px; border-radius: 8px; background: radial-gradient(circle at 50% 45%, rgba(40, 110, 110, 0.55), rgba(6, 30, 40, 0.6)); }
+.ins-names { min-width: 0; }
+.common { font: 600 18px/1.2 var(--serif); color: var(--ink); overflow-wrap: anywhere; }
+.latin { font: italic 14px/1.3 var(--serif); color: var(--ink-2); overflow-wrap: anywhere; }
+.meta { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.tag {
+  display: inline-block; font: 600 10px/1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 3px 6px; border-radius: 4px; margin-right: 6px; vertical-align: 1px;
+  background: rgba(143, 227, 207, 0.12); color: var(--accent-2);
+}
+.tag.predator { background: rgba(255, 155, 134, 0.14); color: var(--danger); }
+.tag.omnivore { background: rgba(255, 213, 154, 0.14); color: var(--accent); }
+.tag.dead { background: rgba(255, 155, 134, 0.2); color: var(--danger); }
+.inspector.deceased .ins-body { opacity: 0.55; filter: saturate(0.4); }
+
+.energy { margin: 12px 0 10px; }
+.energy .lbl { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-3); margin-bottom: 4px; letter-spacing: 0.04em; }
+.energy .lbl b { font: 500 11px var(--mono); color: var(--ink-2); }
+.bar-track { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+.bar-fill { height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, #6fcf97, #c9e86f); transition: width 0.25s; }
+.bar-fill.low { background: linear-gradient(90deg, #ff8a6b, #ffc36b); }
+.bar-mark { position: relative; }
+
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 10px; margin: 0; }
+.grid div { min-width: 0; }
+.grid dt { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.grid dd { margin: 0; font: 500 13px/1.3 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.brain-wrap { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.brain-wrap .lbl { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-3); margin-bottom: 4px; }
+.brain-wrap .lbl i { font-style: normal; }
+.brain-wrap .lbl .k-pos { color: var(--pos); }
+.brain-wrap .lbl .k-neg { color: var(--neg); }
+.brain { width: 100%; height: 220px; display: block; }
+
+.deceased-note { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: rgba(255, 155, 134, 0.08); border: 1px solid rgba(255, 155, 134, 0.22); font-family: var(--serif); font-size: 14px; color: var(--ink-2); }
+.deceased-note .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.deceased-note .btn { height: 28px; font-size: 12px; }
+
+/* chart */
+.chart-wrap { position: relative; height: 128px; }
+#chart { width: 100%; height: 100%; display: block; }
+.chart-axis { display: flex; justify-content: space-between; font: 11px var(--mono); color: var(--ink-3); margin-top: 4px; }
+
+/* field guide */
+.guide { list-style: none; margin: 0 -6px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.guide li {
+  display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  padding: 5px 6px; border-radius: 8px; cursor: pointer; transition: background 0.15s;
+}
+.guide li:hover { background: rgba(160, 230, 220, 0.06); }
+.guide li.current { background: rgba(255, 213, 154, 0.08); box-shadow: inset 2px 0 0 var(--accent); }
+.guide li.extinct { cursor: default; opacity: 0.5; }
+.guide li.extinct:hover { background: none; }
+.guide canvas { width: 54px; height: 36px; display: block; }
+.guide .nm { min-width: 0; }
+.guide .common { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.guide .latin { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.guide .pop { text-align: right; font: 500 13px/1.2 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+.guide .pop small { display: block; font: 10px/1.3 var(--sans); color: var(--ink-3); white-space: nowrap; }
+.guide .swatch { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.guide .more { cursor: default; display: block; color: var(--ink-3); font-size: 12px; padding: 6px; }
+.guide .more:hover { background: none; }
+
+/* journal */
+.journal { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; scrollbar-width: thin; }
+.journal li { font: 15px/1.5 var(--serif); color: var(--ink); padding-left: 12px; border-left: 2px solid rgba(255, 213, 154, 0.18); }
+.journal li .day { font-variant: small-caps; letter-spacing: 0.04em; color: var(--accent); }
+.journal li.fresh { animation: ink 1.2s ease-out; }
+.journal li.t-speciation { border-left-color: rgba(143, 227, 207, 0.5); }
+.journal li.t-extinction { border-left-color: rgba(255, 155, 134, 0.5); }
+.journal .empty { color: var(--ink-3); font-style: italic; border: 0; padding: 0; font-size: 14px; }
+@keyframes ink { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* ---------- narrow screens: panel below the pool ---------- */
+
+@media (max-width: 799px) {
+  body { overflow-x: hidden; overflow-y: auto; }
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; height: auto; min-height: 100vh; }
+  /* the pool is landscape, so size the stage by width rather than wasting a tall box */
+  .stage { aspect-ratio: 1.4; min-height: 240px; max-height: 70vh; }
+  .panel { overflow: visible; border-left: 0; border-top: 1px solid var(--line); padding: 12px 16px 24px; }
+  .bar { gap: 8px 16px; padding: 10px 16px; }
+  .brand .sub { display: none; }
+  .stats { gap: 12px; flex-wrap: wrap; }
+  .controls { margin-left: 0; width: 100%; }
+  .hint { font-size: 11px; }
+  .journal { max-height: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journal li.fresh { animation: none; }
+  .bar-fill { transition: none; }
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="brand">
+      <h1>Tidepool</h1>
+      <p class="sub">Tiny-brained creatures evolving in a sunlit pool</p>
+    </div>
+    <dl class="stats" aria-live="off">
+      <div><dt>Day</dt><dd id="stat-day">0</dd></div>
+      <div><dt>Tick</dt><dd id="stat-tick">0</dd></div>
+      <div><dt>Alive</dt><dd id="stat-pop">0</dd></div>
+      <div><dt>Species</dt><dd id="stat-species">0</dd></div>
+      <div><dt>Seed</dt><dd id="stat-seed">-</dd></div>
+    </dl>
+    <div class="controls">
+      <button type="button" id="btn-play" class="btn play" title="Pause (Space)" aria-label="Pause">
+        <svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3" width="3" height="10" rx="1"/><rect x="9.5" y="3" width="3" height="10" rx="1"/></svg>
+        <svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.6-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z"/></svg>
+      </button>
+      <div class="seg" id="speed" role="group" aria-label="Simulation speed">
+        <button type="button" data-speed="1" class="on" title="1x (key 1)">1&times;</button>
+        <button type="button" data-speed="4" title="4x (key 2)">4&times;</button>
+        <button type="button" data-speed="16" title="16x (key 3)">16&times;</button>
+        <button type="button" data-speed="64" title="64x (key 4)">64&times;</button>
+      </div>
+      <span class="eff" id="stat-eff" title="Actual speed (stepping is capped to keep the page responsive)"></span>
+      <button type="button" id="btn-follow" class="btn toggle" aria-pressed="false" title="Keep the selected creature centred (F)">Follow</button>
+      <button type="button" id="btn-fit" class="btn" title="Show the whole pool (0)">Fit</button>
+      <button type="button" id="btn-seed" class="btn" title="Start a new pool with a fresh seed (N)">New seed</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <canvas id="pool" aria-label="The tide pool. Drag to pan, scroll to zoom, click a creature to inspect it."></canvas>
+    <div class="paused-badge">Paused</div>
+    <p class="hint" id="hint">Drag to pan &middot; scroll to zoom &middot; click a creature</p>
+  </main>
+
+  <aside class="panel">
+    <section class="card inspector" id="inspector" aria-label="Inspector"></section>
+    <section class="card">
+      <h2>Population</h2>
+      <div class="chart-wrap"><canvas id="chart" aria-label="Population by species over time"></canvas></div>
+      <div class="chart-axis"><span id="chart-start"></span><span id="chart-max"></span><span id="chart-end"></span></div>
+    </section>
+    <section class="card">
+      <h2>Field guide <span class="count" id="guide-count"></span></h2>
+      <ul class="guide" id="guide"></ul>
+    </section>
+    <section class="card">
+      <h2>Journal</h2>
+      <ol class="journal" id="journal"></ol>
+    </section>
+  </aside>
+</div>
+<script>
+(() => {
+'use strict';
+const __m2 = (() => {
+
+// Seeded PRNG (mulberry32). Every source of randomness in the simulation goes
+// through one of these so a seed reproduces a whole world exactly.
+
+function makeRng(seed) {
+  let s = (seed >>> 0) || 0x9e3779b9;
+  const next = () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  let spare = null;
+  return {
+    next,
+    // integer in [0, n)
+    int: (n) => Math.floor(next() * n),
+    // float in [a, b)
+    range: (a, b) => a + (b - a) * next(),
+    chance: (p) => next() < p,
+    pick: (arr) => arr[Math.floor(next() * arr.length)],
+    // standard normal via Box-Muller
+    gauss() {
+      if (spare !== null) { const v = spare; spare = null; return v; }
+      let u = 0, v = 0;
+      while (u === 0) u = next();
+      while (v === 0) v = next();
+      const m = Math.sqrt(-2 * Math.log(u));
+      spare = m * Math.sin(2 * Math.PI * v);
+      return m * Math.cos(2 * Math.PI * v);
+    },
+    // independent child stream, deterministic given this stream's state
+    fork: () => makeRng(Math.floor(next() * 4294967296)),
+    get state() { return s; },
+  };
+}
+
+return { makeRng };
+})();
+
+const __m4 = (() => {
+
+// Tiny feed-forward brain: inputs -> tanh hidden layer -> 3 outputs.
+// Weight layout (flat array, so genomes stay JSON-friendly):
+//   [0, H*I)            input->hidden, hidden j uses w[j*I + i] (the `bias` input is the hidden bias)
+//   [H*I, H*I + O*(H+1)) hidden->output, output o uses w[H*I + o*(H+1) + j], j = H is its bias
+
+const INPUTS = [
+  'foodAngle', 'foodDist',
+  'preyAngle', 'preyDist',
+  'threatAngle', 'threatDist',
+  'kinAngle', 'kinDist',
+  'energy', 'wall', 'clock', 'bias',
+];
+const OUTPUTS = ['turn', 'thrust', 'bite'];
+const HIDDEN = 8;
+
+const NI = INPUTS.length;
+const NO = OUTPUTS.length;
+const OUT_BASE = HIDDEN * NI;
+
+function weightCount() {
+  return HIDDEN * NI + NO * (HIDDEN + 1);
+}
+
+// Index helpers so genome.js can build a behavioural prior without knowing the layout.
+function hiddenWeightIndex(hidden, input) {
+  return hidden * NI + input;
+}
+
+function outputWeightIndex(output, hidden) {
+  // hidden === HIDDEN addresses the output's bias
+  return OUT_BASE + output * (HIDDEN + 1) + hidden;
+}
+
+function makeBrain(weights) {
+  const w = Float64Array.from(weights);
+  const h = new Float64Array(HIDDEN);
+  const out = [0, 0, 0];
+  return {
+    // Returns the same array every call (no per-call allocation); copy if you keep it.
+    think(inputs) {
+      for (let j = 0; j < HIDDEN; j++) {
+        let s = 0;
+        const base = j * NI;
+        for (let i = 0; i < NI; i++) s += w[base + i] * inputs[i];
+        h[j] = Math.tanh(s);
+      }
+      for (let o = 0; o < NO; o++) {
+        const base = OUT_BASE + o * (HIDDEN + 1);
+        let s = w[base + HIDDEN];
+        for (let j = 0; j < HIDDEN; j++) s += w[base + j] * h[j];
+        // turn is signed; thrust and bite are squashed into [0, 1]
+        out[o] = o === 0 ? Math.tanh(s) : 0.5 + 0.5 * Math.tanh(s);
+      }
+      return out;
+    },
+  };
+}
+
+return { INPUTS, OUTPUTS, HIDDEN, weightCount, hiddenWeightIndex, outputWeightIndex, makeBrain };
+})();
+
+const __m3 = (() => {
+const { weightCount, hiddenWeightIndex, outputWeightIndex, INPUTS, HIDDEN } = __m4;
+// Genome = visible/body traits in [0,1] + brain weights. Phenotype is derived
+// deterministically, so the genome is the only thing that needs to be stored.
+
+const TRAITS = [
+  'size', 'speed', 'sense', 'hue', 'saturation', 'lightness', 'diet', 'fins',
+  'aspect', 'pattern', 'patternHue', 'tail', 'fertility', 'brood', 'longevity',
+];
+
+const PATTERN_NAMES = ['plain', 'spots', 'stripes', 'bands'];
+
+// How much each trait counts toward species distance. Visible traits dominate.
+const TRAIT_WEIGHT = {
+  size: 1.6, speed: 1.0, sense: 0.6, hue: 2.4, saturation: 0.8, lightness: 0.8,
+  diet: 1.4, fins: 1.0, aspect: 1.0, pattern: 1.0, patternHue: 1.2, tail: 0.8,
+  fertility: 0.4, brood: 0.4, longevity: 0.4,
+};
+const CIRCULAR = { hue: true, patternHue: true };
+const TRAIT_SHARE = 0.92; // remaining share comes from brain weights
+const WEIGHT_SCALE = 0.6; // mean |dw| that counts as "completely different brain"
+const WEIGHT_LIMIT = 5;
+
+let weightTotal = 0;
+for (const t of TRAITS) weightTotal += TRAIT_WEIGHT[t];
+
+const IN = {};
+INPUTS.forEach((name, i) => { IN[name] = i; });
+
+// Hand-built behavioural prior: turn toward food, chase prey if carnivorous,
+// flee threats, steer off walls, keep moving. Noise on top gives variety.
+function priorWeights(rng, diet) {
+  const w = new Array(weightCount()).fill(0);
+  const H = (h, input, v) => { w[hiddenWeightIndex(h, IN[input])] = v; };
+  const O = (o, h, v) => { w[outputWeightIndex(o, h)] = v; };
+  // h0: food direction -> turn (grazers care more)
+  H(0, 'foodAngle', 3); O(0, 0, 2.2 * (1 - 0.6 * diet));
+  // h1: prey direction -> turn (carnivores)
+  H(1, 'preyAngle', 3); O(0, 1, 2.4 * diet);
+  // h2: prey close -> bite
+  H(2, 'preyDist', 3); O(2, 2, 4 * diet);
+  // h3: threat direction -> turn away; h4 also speeds up when threatened
+  H(3, 'threatAngle', -3); O(0, 3, 1.6);
+  // h4: cruise thrust, faster under threat, slower as food gets close (less orbiting)
+  H(4, 'bias', 1); H(4, 'threatDist', 2); H(4, 'foodDist', -1.2); O(1, 4, 1.6);
+  // h5: near a wall -> turn (one consistent direction is enough to escape)
+  H(5, 'wall', 3); O(0, 5, 1.4);
+  // h6: wandering oscillator
+  H(6, 'clock', 1); O(0, 6, 0.5);
+  O(2, HIDDEN, -2.5 + 2 * diet); // bite bias: grazers keep their mouths shut
+  for (let i = 0; i < w.length; i++) w[i] = clampW(w[i] + rng.gauss() * 0.3);
+  return w;
+}
+function clampW(v) {
+  return v > WEIGHT_LIMIT ? WEIGHT_LIMIT : v < -WEIGHT_LIMIT ? -WEIGHT_LIMIT : v;
+}
+
+// Reflect into [0,1] so mutations near the edges don't pile up exactly at 0 or 1.
+function reflect01(v) {
+  if (v < 0) v = -v;
+  if (v > 1) v = 2 - v;
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+function randomGenome(rng) {
+  const traits = {};
+  for (const t of TRAITS) traits[t] = rng.next();
+  // Most founders graze; carnivory has to be earned (or comes from a lucky draw).
+  traits.diet = rng.next() * rng.next() * 0.8;
+  traits.size = 0.15 + rng.next() * 0.6;
+  return { traits, weights: priorWeights(rng, traits.diet) };
+}
+
+function mutate(genome, rng, strength = 1) {
+  const traits = {};
+  for (const t of TRAITS) {
+    let v = genome.traits[t];
+    if (rng.next() < 0.4) v += rng.gauss() * 0.05 * strength;
+    if (rng.next() < 0.015 * strength) v += rng.gauss() * 0.2; // rare larger jump
+    traits[t] = CIRCULAR[t] ? ((v % 1) + 1) % 1 : reflect01(v);
+  }
+  const src = genome.weights;
+  const weights = new Array(src.length);
+  for (let i = 0; i < src.length; i++) {
+    let v = src[i];
+    if (rng.next() < 0.08 * strength) v += rng.gauss() * 0.25;
+    weights[i] = clampW(v);
+  }
+  return { traits, weights };
+}
+
+function crossover(a, b, rng) {
+  const traits = {};
+  for (const t of TRAITS) traits[t] = rng.next() < 0.5 ? a.traits[t] : b.traits[t];
+  // Swap whole neurons, not single weights, so useful circuits stay intact.
+  const weights = a.weights.slice();
+  const ni = INPUTS.length;
+  for (let h = 0; h < HIDDEN; h++) {
+    if (rng.next() < 0.5) {
+      for (let i = 0; i < ni; i++) weights[hiddenWeightIndex(h, i)] = b.weights[hiddenWeightIndex(h, i)];
+      for (let o = 0; o < 3; o++) weights[outputWeightIndex(o, h)] = b.weights[outputWeightIndex(o, h)];
+    }
+  }
+  return { traits, weights };
+}
+
+function distance(a, b) {
+  let s = 0;
+  for (const t of TRAITS) {
+    let d = Math.abs(a.traits[t] - b.traits[t]);
+    if (CIRCULAR[t]) d = Math.min(d, 1 - d) * 2;
+    s += TRAIT_WEIGHT[t] * d;
+  }
+  const traitPart = s / weightTotal;
+  const wa = a.weights, wb = b.weights;
+  let ws = 0;
+  for (let i = 0; i < wa.length; i++) ws += Math.abs(wa[i] - wb[i]);
+  const weightPart = Math.min(1, ws / wa.length / WEIGHT_SCALE);
+  return TRAIT_SHARE * traitPart + (1 - TRAIT_SHARE) * weightPart;
+}
+
+function express(genome) {
+  const t = genome.traits;
+  const radius = 3 + 11 * t.size;
+  const sizeN = (radius - 3) / 11;
+  const maxSpeed = 0.6 + 2.6 * t.speed;
+  const senseRange = 30 + 140 * t.sense;
+  // Small bodies turn faster; fins help a bit.
+  const turnRate = 0.04 + 0.21 * (1 - sizeN) * (0.7 + 0.3 * t.fins);
+  const finCount = Math.min(4, Math.floor(t.fins * 5));
+  const r2 = radius * radius;
+  return {
+    radius,
+    maxSpeed,
+    turnRate,
+    senseRange,
+    hue: t.hue * 360,
+    saturation: 35 + 60 * t.saturation,
+    lightness: 40 + 32 * t.lightness,
+    diet: t.diet,
+    finCount,
+    bodyAspect: 1 + 1.4 * t.aspect,
+    pattern: PATTERN_NAMES[Math.min(3, Math.floor(t.pattern * 4))],
+    patternHue: t.patternHue * 360,
+    tailLength: 0.4 + 1.2 * t.tail,
+    maxEnergy: 30 + 3 * r2,
+    reproduceAt: 0.95 - 0.4 * t.fertility,
+    litterSize: 1 + Math.min(2, Math.floor(t.brood * 3)),
+    lifespan: Math.round(3000 + 11000 * t.longevity),
+    // Bigger bodies, sharper senses and longer lives all cost upkeep.
+    metabolism: (0.01 + 0.008 * radius + 0.0004 * r2 + 0.0003 * senseRange) * (0.85 + 0.3 * t.longevity),
+  };
+}
+
+return { TRAITS, PATTERN_NAMES, randomGenome, mutate, crossover, distance, express };
+})();
+
+const __m5 = (() => {
+const { distance } = __m3;
+// Species registry and procedural naming. A species is just a founder genome;
+// newborns join their parent's species unless they have drifted too far.
+const SPECIES_THRESHOLD = 0.12;
+
+// ---------- Latin adjective helpers (feminine / masculine / neuter) ----------
+// Cheap gender agreement: every epithet is stored in all three forms and the
+// genus suffix decides which one is used.
+const a1 = (stem) => ({ f: stem + 'a', m: stem + 'us', n: stem + 'um' });
+const ra = (stem, masc) => ({ f: stem + 'ra', m: masc, n: stem + 'rum' }); // ruber/rubra/rubrum
+const is3 = (stem) => ({ f: stem + 'is', m: stem + 'is', n: stem + 'e' }); // viridis/viride
+const inv = (w) => ({ f: w, m: w, n: w });
+
+// ---------- Genus: prefix from the most striking body feature ----------
+// Each feature carries Latin/Greek combining forms plus English words for the
+// common name, so "Veloci-pinna" and "Dart-fin" come from the same choice.
+const FEATURES = {
+  big: { latin: ['Magno', 'Megalo', 'Grandi', 'Macro', 'Ingenti'], heads: ['Great', 'Barrel', 'Boulder', 'Bulk'], nouns: ['Grouper', 'Wallower', 'Hulk', 'Bass'] },
+  small: { latin: ['Micro', 'Parvi', 'Nano', 'Minuti', 'Pusilli'], heads: ['Pip', 'Mote', 'Bead', 'Speck'], nouns: ['Minnow', 'Goby', 'Sprat', 'Tiddler'] },
+  fast: { latin: ['Veloci', 'Tachy', 'Celeri', 'Ocy', 'Dromo'], heads: ['Dart', 'Flick', 'Arrow', 'Zip', 'Quill'], nouns: ['Darter', 'Skipper', 'Flash', 'Scud'] },
+  slow: { latin: ['Brady', 'Lento', 'Tardi', 'Segni'], heads: ['Drift', 'Loll', 'Idle', 'Dawdle'], nouns: ['Drifter', 'Dawdler', 'Loafer', 'Bumbler'] },
+  predator: { latin: ['Lyco', 'Carno', 'Harpago', 'Sarco', 'Lamio', 'Thero', 'Dino'], heads: ['Snap', 'Fang', 'Hook', 'Razor', 'Grim', 'Gulp'], nouns: ['Snapper', 'Reefstalker', 'Lurker', 'Marauder', 'Ambusher', 'Reaver', 'Gulper', 'Shadowjaw'] },
+  grazer: { latin: ['Phyco', 'Algi', 'Phyto', 'Herbi', 'Bryo'], heads: ['Moss', 'Weed', 'Kelp', 'Nibble', 'Wrack'], nouns: ['Grazer', 'Nibbler', 'Weedpicker', 'Mossgleaner', 'Browser'] },
+  long: { latin: ['Dolicho', 'Longi', 'Steno', 'Tenui', 'Belono'], heads: ['Needle', 'Ribbon', 'Lance', 'Reed', 'Spindle'], nouns: ['Pipefish', 'Needlefish', 'Eelet', 'Lancelet'] },
+  round: { latin: ['Brachy', 'Globi', 'Cyclo', 'Orbi', 'Sphaero'], heads: ['Puff', 'Button', 'Bobble', 'Pebble'], nouns: ['Puffer', 'Bobber', 'Roundling', 'Dumpling'] },
+  keen: { latin: ['Scopo', 'Oculi', 'Ophthalmo', 'Argo'], heads: ['Watch', 'Gaze', 'Peer', 'Wake'], nouns: ['Watcher', 'Lookout', 'Gazer', 'Sentinel'] },
+  bright: { latin: ['Luci', 'Lampro', 'Photo', 'Fulgi'], heads: ['Glimmer', 'Shimmer', 'Lantern', 'Gleam'], nouns: ['Shiner', 'Glint', 'Sparkler'] },
+  dark: { latin: ['Scoto', 'Nycto', 'Umbri', 'Melano'], heads: ['Dusk', 'Murk', 'Shade', 'Gloam'], nouns: ['Gloamer', 'Shade', 'Skulker'] },
+  sea: { latin: ['Thalasso', 'Hali', 'Pelago', 'Litori', 'Aesto'], heads: ['Reef', 'Tide', 'Pool', 'Shoal', 'Brine'], nouns: ['Wrasse', 'Blenny', 'Sculpin', 'Shiner', 'Tidewalker'] },
+};
+
+// ---------- Genus: suffix from fins / tail / jaws ----------
+const SUFFIXES = {
+  fins: { latin: [['pinna', 'f'], ['pteryx', 'f'], ['pterus', 'm']], roots: ['fin', 'fin', 'sail', 'wing'] },
+  finless: { latin: [['soma', 'n'], ['nectes', 'm']], roots: ['back', 'belly', 'body'] },
+  tail: { latin: [['cauda', 'f'], ['urus', 'm']], roots: ['tail', 'whip', 'plume'] },
+  jaw: { latin: [['odon', 'm'], ['gnathus', 'm'], ['stoma', 'n']], roots: ['jaw', 'tooth', 'maw', 'fang'] },
+  generic: { latin: [['ichthys', 'm'], ['nectes', 'm'], ['lepis', 'f'], ['cephalus', 'm'], ['pinna', 'f']], roots: ['scale', 'gill', 'snout', 'fin'] },
+};
+
+// ---------- Epithets: colour, tone, pattern ----------
+// Hue bands: [maxHue, latin adjectives, English adjectives, combining form, English combining word]
+const HUES = [
+  [14, [ra('rub', 'ruber'), a1('coccine'), a1('sanguine')], ['Crimson', 'Scarlet', 'Red', 'Ruby'], 'rubro', 'Red'],
+  [38, [a1('auranti'), a1('igne'), a1('cupre')], ['Amber', 'Tangerine', 'Ember', 'Copper'], 'aurantio', 'Amber'],
+  [64, [a1('flav'), a1('lute'), a1('aure')], ['Golden', 'Saffron', 'Yellow', 'Gilded'], 'flavo', 'Gold'],
+  [95, [a1('chlor'), a1('olivace'), a1('galbin')], ['Lime', 'Olive', 'Chartreuse'], 'chloro', 'Olive'],
+  [150, [is3('virid'), a1('smaragdin'), a1('prasin')], ['Green', 'Emerald', 'Jade', 'Verdant'], 'viridi', 'Green'],
+  [190, [a1('thalassin'), a1('glauc'), a1('aeruginos')], ['Teal', 'Seaglass', 'Verdigris', 'Lagoon'], 'glauco', 'Teal'],
+  [232, [a1('caerule'), a1('cyane'), a1('azure')], ['Azure', 'Cerulean', 'Blue', 'Cornflower'], 'cyano', 'Blue'],
+  [262, [a1('cobaltin'), a1('sapphirin'), a1('lazulin')], ['Indigo', 'Cobalt', 'Sapphire', 'Midnight'], 'caeruleo', 'Indigo'],
+  [292, [a1('violace'), a1('ianthin'), a1('amethystin')], ['Violet', 'Amethyst', 'Lilac'], 'ianthino', 'Violet'],
+  [330, [a1('purpure'), a1('porphyre'), a1('murice')], ['Purple', 'Magenta', 'Orchid', 'Plum'], 'purpureo', 'Purple'],
+  [361, [a1('rose'), a1('rhodin'), a1('carne')], ['Rose', 'Blush', 'Pink', 'Coral'], 'roseo', 'Rose'],
+];
+const TONES = {
+  light: [[a1('alb'), a1('pallid'), a1('lacte'), a1('argente')], ['Pale', 'Ghost', 'Silver', 'Pearl', 'Milky'], 'albo', 'White'],
+  dark: [[ra('nig', 'niger'), a1('fusc'), ra('at', 'ater'), a1('obscur')], ['Dusky', 'Sooty', 'Black', 'Inky', 'Shadow'], 'nigro', 'Black'],
+  grey: [[a1('cinere'), a1('grise'), a1('livid'), a1('plumbe')], ['Ashen', 'Grey', 'Slate', 'Leaden', 'Smoky'], 'griseo', 'Grey'],
+};
+// Pattern epithets: [latin participle stems, English adjectives, English compound suffixes]
+const PATTERNS = {
+  spots: [['maculat', 'punctat', 'guttat', 'ocellat', 'stellat'], ['Spotted', 'Speckled', 'Freckled', 'Dappled'], ['spotted', 'speckled', 'flecked']],
+  stripes: [['striat', 'lineat', 'vittat', 'virgat'], ['Striped', 'Lined', 'Pinstriped', 'Streaked'], ['striped', 'lined', 'streaked']],
+  bands: [['fasciat', 'zonat', 'cinct', 'annulat'], ['Banded', 'Barred', 'Belted', 'Ringed'], ['banded', 'barred', 'belted']],
+};
+const PLAIN = [[inv('concolor'), inv('simplex'), a1('nud'), is3('lev')], ['Plain', 'Smooth', 'Drab']];
+const FIERCE = [[inv('ferox'), inv('vorax'), inv('rapax'), a1('dir')], ['Fierce', 'Ravening', 'Greedy', 'Dire']];
+
+const SIZE_SMALL = ['Lesser', 'Dwarf', 'Pygmy', 'Little'];
+const SIZE_BIG = ['Greater', 'Giant', 'Great', 'Grand'];
+
+// Used only to break name collisions inside one registry.
+const VARIANTS = [
+  [is3('boreal'), 'Northern'], [is3('austral'), 'Southern'], [is3('occidental'), 'Western'],
+  [is3('oriental'), 'Eastern'], [is3('litoral'), 'Shore'], [a1('profund'), 'Deepwater'],
+  [a1('nov'), 'New'], [is3('vadal'), 'Shallows'], [a1('serotin'), 'Late'], [a1('vespertin'), 'Evening'],
+];
+
+// ---------- helpers ----------
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const VOWELS = 'aeiou';
+
+function weightedPick(rng, entries) {
+  let total = 0;
+  for (const e of entries) total += e[1];
+  let r = rng.next() * total;
+  for (const e of entries) {
+    r -= e[1];
+    if (r <= 0) return e[0];
+  }
+  return entries[entries.length - 1][0];
+}
+
+// Elide the prefix's linking vowel before a vowel-initial suffix: Megalo+odon -> Megalodon.
+function joinLatin(prefix, suffix) {
+  if (VOWELS.includes(suffix[0]) && VOWELS.includes(prefix[prefix.length - 1])) prefix = prefix.slice(0, -1);
+  return prefix + suffix;
+}
+
+function joinEnglish(head, root) {
+  const h = head.toLowerCase();
+  if (h.endsWith(root) || root.startsWith(h)) return head + 'fin';
+  return head + (h[h.length - 1] === root[0] ? '-' : '') + root;
+}
+
+function hueBand(h) {
+  h = ((h % 360) + 360) % 360;
+  for (const band of HUES) if (h < band[0]) return band;
+  return HUES[HUES.length - 1];
+}
+
+// Salience of each body-plan feature, 0..~1; only features that actually stand out are listed.
+function bodyFeatures(p) {
+  const size = clamp01((p.radius - 3) / 11);
+  const speed = clamp01((p.maxSpeed - 0.6) / 2.6);
+  const aspect = clamp01((p.bodyAspect - 1) / 1.4);
+  const sense = clamp01((p.senseRange - 30) / 140);
+  const out = [['sea', 0.12]];
+  if (size > 0.58) out.push(['big', (size - 0.45) * 1.6]);
+  if (size < 0.36) out.push(['small', (0.5 - size) * 1.6]);
+  if (speed > 0.6) out.push(['fast', (speed - 0.45) * 1.6]);
+  if (speed < 0.3) out.push(['slow', (0.45 - speed) * 1.4]);
+  if (p.diet > 0.55) out.push(['predator', (p.diet - 0.35) * 2.4]);
+  if (p.diet < 0.22) out.push(['grazer', (0.35 - p.diet) * 1.5]);
+  if (aspect > 0.62) out.push(['long', (aspect - 0.45) * 1.5]);
+  if (aspect < 0.22) out.push(['round', (0.4 - aspect) * 1.5]);
+  if (sense > 0.72) out.push(['keen', (sense - 0.5) * 1.2]);
+  if (p.lightness > 64) out.push(['bright', (p.lightness - 58) / 16]);
+  if (p.lightness < 46) out.push(['dark', (52 - p.lightness) / 14]);
+  return out;
+}
+
+function suffixGroups(p) {
+  const tail = clamp01((p.tailLength - 0.4) / 1.2);
+  const out = [['generic', 0.35]];
+  if (p.finCount >= 3) out.push(['fins', p.finCount / 4]);
+  else if (p.finCount >= 1) out.push(['fins', 0.15]);
+  else out.push(['finless', 0.7]);
+  if (tail > 0.6) out.push(['tail', tail]);
+  if (p.diet > 0.5) out.push(['jaw', p.diet * 1.3]);
+  return out;
+}
+
+// Pick a colour descriptor: [latin adjectives, English adjectives, combo latin, combo English].
+function colourOf(rng, hue, sat, light) {
+  if (sat < 45) return light >= 64 ? TONES.light : light <= 45 ? TONES.dark : TONES.grey;
+  if (light >= 67 && rng.chance(0.5)) return TONES.light;
+  if (light <= 44 && rng.chance(0.5)) return TONES.dark;
+  const b = hueBand(hue);
+  return [b[1], b[2], b[3], b[4]];
+}
+
+// Full name with grammatical gender kept, for the registry's collision handling.
+function makeName(rng, p) {
+  const feature = weightedPick(rng, bodyFeatures(p).map(([k, s]) => [k, Math.pow(Math.max(s, 0.01), 1.5)]));
+  const group = weightedPick(rng, suffixGroups(p).map(([k, s]) => [k, Math.pow(Math.max(s, 0.01), 1.5)]));
+  const F = FEATURES[feature];
+  const S = SUFFIXES[group];
+
+  let latinSuffixes = S.latin;
+  if (p.finCount === 0) latinSuffixes = latinSuffixes.filter((s) => !s[0].startsWith('pin'));
+  const [suffix, gender] = rng.pick(latinSuffixes);
+  const genus = joinLatin(rng.pick(F.latin), suffix);
+
+  // Common-name noun: a compound ("Dartfin") or a standalone field-guide noun ("Snapper").
+  // Hunters always get a hunter's noun or jaw, whatever feature named the genus.
+  let noun;
+  const hunter = p.diet > 0.6 && feature !== 'predator';
+  const standaloneChance = feature === 'predator' ? 0.6 : 0.35;
+  if (rng.chance(standaloneChance)) noun = rng.pick(hunter && rng.chance(0.6) ? FEATURES.predator.nouns : F.nouns);
+  else {
+    let roots = hunter && group !== 'jaw' && rng.chance(0.6) ? SUFFIXES.jaw.roots : S.roots;
+    if (p.finCount === 0) roots = roots.filter((r) => r !== 'fin' && r !== 'sail' && r !== 'wing');
+    noun = joinEnglish(rng.pick(F.heads), rng.pick(roots.length ? roots : ['back']));
+  }
+
+  // Epithet + matching English adjective, chosen from one theme so they agree.
+  let epithetForms, adjective;
+  const pat = PATTERNS[p.pattern];
+  const r = rng.next();
+  if (p.diet > 0.75 && r < 0.14) {
+    epithetForms = rng.pick(FIERCE[0]);
+    adjective = rng.pick(FIERCE[1]);
+  } else if (pat && r < 0.5) {
+    epithetForms = a1(rng.pick(pat[0]));
+    adjective = rng.pick(pat[1]);
+  } else if (pat && r < 0.78) {
+    // Pattern colour named in a compound: nigromaculata / "Black-spotted".
+    const c = colourOf(rng, p.patternHue, p.saturation, 56);
+    epithetForms = a1(c[2] + rng.pick(pat[0]));
+    adjective = c[3] + '-' + rng.pick(pat[2]);
+  } else if (!pat && r < 0.12) {
+    epithetForms = rng.pick(PLAIN[0]);
+    adjective = rng.pick(PLAIN[1]);
+  } else {
+    const c = colourOf(rng, p.hue, p.saturation, p.lightness);
+    epithetForms = rng.pick(c[0]);
+    adjective = rng.pick(c[1]);
+  }
+
+  let sizeWord = '';
+  if (p.radius < 5.5 && feature !== 'small' && rng.chance(0.4)) sizeWord = rng.pick(SIZE_SMALL) + ' ';
+  else if (p.radius > 11 && feature !== 'big' && rng.chance(0.4)) sizeWord = rng.pick(SIZE_BIG) + ' ';
+
+  return { genus, epithet: epithetForms[gender], common: sizeWord + adjective + ' ' + noun, gender };
+}
+
+function binomialName(rng, pheno) {
+  const { genus, epithet, common } = makeName(rng, pheno);
+  return { genus, epithet, common };
+}
+
+function roman(n) {
+  const table = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+  let s = '';
+  for (const [v, r] of table) while (n >= v) { s += r; n -= v; }
+  return s;
+}
+
+function createRegistry(rng) {
+  // A private stream so naming never perturbs the caller's simulation randomness.
+  const nameRng = rng.fork();
+  const list = [];
+  const byId = new Map();
+  const usedLatin = new Set();
+  const usedCommon = new Set();
+  let nextId = 1;
+
+  const taken = (n) => usedLatin.has(n.genus + ' ' + n.epithet) || usedCommon.has(n.common);
+
+  function uniqueName(pheno) {
+    let first = null;
+    for (let i = 0; i < 4; i++) {
+      const n = makeName(nameRng, pheno);
+      if (!first) first = n;
+      if (!taken(n)) return n;
+    }
+    // Reroll failed: try a geographic-sounding variety, then Roman numerals.
+    const start = nameRng.int(VARIANTS.length);
+    for (let i = 0; i < VARIANTS.length; i++) {
+      const [forms, eng] = VARIANTS[(start + i) % VARIANTS.length];
+      const n = { genus: first.genus, epithet: first.epithet + ' ' + forms[first.gender], common: eng + ' ' + first.common };
+      if (!taken(n)) return n;
+    }
+    for (let k = 2; ; k++) {
+      const n = { genus: first.genus, epithet: first.epithet + ' ' + roman(k), common: first.common + ' ' + roman(k) };
+      if (!taken(n)) return n;
+    }
+  }
+
+  function found(genome, pheno, tick, parentId = null) {
+    const n = uniqueName(pheno);
+    usedLatin.add(n.genus + ' ' + n.epithet);
+    usedCommon.add(n.common);
+    const sp = {
+      id: nextId++,
+      name: { genus: n.genus, epithet: n.epithet, common: n.common },
+      hue: pheno.hue,
+      founderTick: tick,
+      parentId: parentId ?? null,
+      representative: genome,
+      pheno, // founder phenotype, handy for portraits and the journal
+      population: 0,
+      peakPopulation: 0,
+      peakTick: tick,
+      totalBorn: 0,
+      extinctTick: null,
+    };
+    list.push(sp);
+    byId.set(sp.id, sp);
+    return sp;
+  }
+
+  function classify(genome, pheno, parentSpeciesId, tick) {
+    const parent = parentSpeciesId == null ? undefined : byId.get(parentSpeciesId);
+    if (parent && distance(genome, parent.representative) < SPECIES_THRESHOLD) {
+      parent.totalBorn++;
+      return { id: parent.id, isNew: false };
+    }
+    const sp = found(genome, pheno, tick, parent ? parent.id : null);
+    sp.totalBorn = 1;
+    return { id: sp.id, isNew: true };
+  }
+
+  function census(creatures, tick) {
+    const counts = new Map();
+    for (const c of creatures) {
+      if (c && c.alive !== false) counts.set(c.speciesId, (counts.get(c.speciesId) || 0) + 1);
+    }
+    const events = [];
+    for (const sp of list) {
+      const n = counts.get(sp.id) || 0;
+      if (sp.extinctTick !== null) {
+        // A reseed can bring a lost species back; let it live again rather than miscount.
+        if (n === 0) continue;
+        sp.extinctTick = null;
+      }
+      sp.population = n;
+      if (n > sp.peakPopulation) { sp.peakPopulation = n; sp.peakTick = tick; }
+      if (n === 0 && tick - sp.founderTick >= 1) {
+        sp.extinctTick = tick;
+        events.push({ type: 'extinction', tick, speciesId: sp.id });
+      }
+    }
+    return events;
+  }
+
+  return {
+    found,
+    classify,
+    census,
+    get: (id) => byId.get(id),
+    all: () => list.slice(),
+    // Population 0 without extinction only happens for a species founded on a census tick,
+    // which DESIGN.md counts as living ("not yet censused since founding").
+    living: () => list.filter((sp) => sp.extinctTick === null),
+  };
+}
+
+return { SPECIES_THRESHOLD, binomialName, createRegistry };
+})();
+
+const __m1 = (() => {
+const { makeRng } = __m2;
+const { randomGenome, mutate, crossover, distance, express } = __m3;
+const { makeBrain, INPUTS } = __m4;
+const { createRegistry, SPECIES_THRESHOLD } = __m5;
+// The tide pool simulation: sensing, thinking, swimming, eating, breeding, dying.
+// Everything here is deterministic given the seed (all randomness via world.rng).
+
+
+
+
+const DAY = 600;
+
+// Ecology constants. Tuned with bench/world.bench.js; see the report there.
+const ECOLOGY = {
+  cell: 64,
+  foodEnergy: [7, 12],    // pellet energy range
+  lightShare: 0.85,       // fraction of algae that sprouts inside a light
+  moveCost: 0.0016,       // * speed^2 * radius
+  biteCost: 0.012,        // * bite, per tick
+  grazeExponent: 1.5,     // gain = food * (1 - diet)^k
+  preyBodyValue: 1.6,     // * prey radius^2
+  preyEnergyShare: 0.4,
+  digestTicks: 45,        // a predator can't bite again right after a kill
+  minBreedAge: 240,
+  parentKeeps: 0.45,
+  birthLoss: 0.15,
+  crossoverChance: 0.15,
+  mutationStrength: 0.6,
+  starvingFraction: 0.15, // below this energy share, cannibalism is allowed
+};
+
+const EVENT_CAP = 300;
+const HISTORY_CAP = 800;
+const SAMPLE_EVERY = 30;
+const MILESTONES = [25, 50, 100, 200];
+const TAU = Math.PI * 2;
+
+// Uniform grid rebuilt every tick with a counting sort: no per-tick allocation
+// once the item buffer has grown to fit.
+class CellGrid {
+  constructor(width, height, size) {
+    this.size = size;
+    this.cols = Math.max(1, Math.ceil(width / size));
+    this.rows = Math.max(1, Math.ceil(height / size));
+    const n = this.cols * this.rows;
+    this.start = new Int32Array(n + 1);
+    this.fill = new Int32Array(n);
+    this.items = new Int32Array(1024);
+    this.cellOf = new Int32Array(1024);
+  }
+  cx(x) { const c = (x / this.size) | 0; return c < 0 ? 0 : c >= this.cols ? this.cols - 1 : c; }
+  cy(y) { const c = (y / this.size) | 0; return c < 0 ? 0 : c >= this.rows ? this.rows - 1 : c; }
+  build(list) {
+    const n = list.length;
+    if (n > this.items.length) {
+      const cap = Math.max(n, this.items.length * 2);
+      this.items = new Int32Array(cap);
+      this.cellOf = new Int32Array(cap);
+    }
+    const { start, fill, items, cellOf, cols } = this;
+    start.fill(0);
+    for (let i = 0; i < n; i++) {
+      const o = list[i];
+      const c = this.cy(o.y) * cols + this.cx(o.x);
+      cellOf[i] = c;
+      start[c + 1]++;
+    }
+    for (let c = 0; c < fill.length; c++) { start[c + 1] += start[c]; fill[c] = start[c]; }
+    for (let i = 0; i < n; i++) items[fill[cellOf[i]]++] = i;
+  }
+}
+
+function emit(world, ev) {
+  world.eventSeq++;
+  ev.seq = world.eventSeq;
+  ev.tick = world.tick;
+  world.events.push(ev);
+  if (world.events.length > EVENT_CAP) world.events.shift();
+  return ev;
+}
+
+function addFood(world, x, y, energy) {
+  world.food.push({ x, y, energy });
+}
+
+function sproutAlgae(world) {
+  const { rng, width, height } = world;
+  const [emin, emax] = ECOLOGY.foodEnergy;
+  let x, y;
+  if (world.lights.length && rng.next() < ECOLOGY.lightShare) {
+    const L = world.lights[rng.int(world.lights.length)];
+    const a = rng.next() * TAU, d = Math.sqrt(rng.next()) * L.r;
+    x = L.x + Math.cos(a) * d;
+    y = L.y + Math.sin(a) * d;
+    if (x < 2 || x > width - 2 || y < 2 || y > height - 2) return;
+  } else {
+    x = rng.range(2, width - 2);
+    y = rng.range(2, height - 2);
+  }
+  addFood(world, x, y, rng.range(emin, emax));
+}
+
+function makeLights(world) {
+  const { rng, width, height } = world;
+  const count = 3 + rng.int(2);
+  for (let i = 0; i < count; i++) {
+    const r = rng.range(110, 190);
+    const a = rng.next() * TAU, s = rng.range(0.12, 0.3);
+    world.lights.push({
+      x: rng.range(r, width - r), y: rng.range(r, height - r), r,
+      vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+    });
+  }
+}
+
+function driftLights(world) {
+  for (const L of world.lights) {
+    L.x += L.vx; L.y += L.vy;
+    if (L.x < L.r * 0.5) { L.x = L.r * 0.5; L.vx = Math.abs(L.vx); }
+    if (L.x > world.width - L.r * 0.5) { L.x = world.width - L.r * 0.5; L.vx = -Math.abs(L.vx); }
+    if (L.y < L.r * 0.5) { L.y = L.r * 0.5; L.vy = Math.abs(L.vy); }
+    if (L.y > world.height - L.r * 0.5) { L.y = world.height - L.r * 0.5; L.vy = -Math.abs(L.vy); }
+  }
+}
+
+// Create a creature already assigned to a species (no classification, no events).
+function addCreature(world, genome, x, y, speciesId, parent) {
+  const pheno = express(genome);
+  const rng = world.rng;
+  const c = {
+    id: world.nextId++,
+    genome, pheno,
+    brain: makeBrain(genome.weights),
+    x: Math.min(world.width - pheno.radius, Math.max(pheno.radius, x)),
+    y: Math.min(world.height - pheno.radius, Math.max(pheno.radius, y)),
+    angle: rng.next() * TAU,
+    speed: 0,
+    energy: pheno.maxEnergy * 0.5,
+    age: 0,
+    generation: parent ? parent.generation + 1 : 0,
+    parentId: parent ? parent.id : null,
+    speciesId,
+    alive: true,
+    outputs: [0, 0, 0],
+    inputs: new Array(INPUTS.length).fill(0),
+    kills: 0,
+    children: 0,
+    phase: rng.next() * TAU,
+    causeOfDeath: null,
+    cooldown: 0, // ticks until a predator may bite again
+  };
+  world.creatures.push(c);
+  if (c.generation > world.stats.generationMax) world.stats.generationMax = c.generation;
+  return c;
+}
+
+function spawnCreature(world, genome, x, y, parent = null) {
+  const reg = world.species;
+  let speciesId;
+  if (parent) {
+    // A drifting population tends to cross the threshold many times at once. If a
+    // sister lineage already split off and this child fits it, join that instead
+    // of founding yet another near-identical species.
+    let target = parent.speciesId;
+    const home = reg.get(target);
+    if (home && distance(genome, home.representative) >= SPECIES_THRESHOLD) {
+      const daughters = world._daughters.get(target);
+      if (daughters) {
+        for (const id of daughters) {
+          const d = reg.get(id);
+          if (d && d.extinctTick === null && distance(genome, d.representative) < SPECIES_THRESHOLD) { target = id; break; }
+        }
+      }
+    }
+    const res = reg.classify(genome, express(genome), target, world.tick);
+    speciesId = res.id;
+    if (res.isNew) {
+      if (!world._daughters.has(target)) world._daughters.set(target, []);
+      world._daughters.get(target).push(speciesId);
+      emit(world, { type: 'speciation', speciesId, parentId: target });
+    }
+  } else {
+    // No parent: join the closest living species if it's close enough, else found one.
+    let best = null, bestD = SPECIES_THRESHOLD;
+    for (const sp of reg.living()) {
+      const d = distance(genome, sp.representative);
+      if (d < bestD) { bestD = d; best = sp; }
+    }
+    if (best) {
+      speciesId = best.id;
+      best.totalBorn++;
+    } else {
+      const sp = reg.found(genome, express(genome), world.tick, null);
+      sp.totalBorn = 1;
+      speciesId = sp.id;
+      emit(world, { type: 'speciation', speciesId, parentId: null });
+    }
+  }
+  const c = addCreature(world, genome, x, y, speciesId, parent);
+  if (parent) {
+    parent.children++;
+    world.stats.births++;
+    emit(world, { type: 'birth', creatureId: c.id, parentId: parent.id, speciesId });
+  }
+  return c;
+}
+
+function createWorld(options = {}) {
+  const config = {
+    width: 1600, height: 1000, seed: 1, initialCreatures: 60, initialSpecies: 6,
+    maxFood: 700, foodRate: 3.5, maxCreatures: 600, ...options,
+  };
+  const rng = makeRng(config.seed);
+  const world = {
+    width: config.width, height: config.height, tick: 0, seed: config.seed, rng, config,
+    creatures: [], food: [], lights: [],
+    species: createRegistry(rng.fork()),
+    events: [], eventSeq: 0, history: [],
+    stats: { births: 0, deaths: 0, predations: 0, generationMax: 0 },
+    nextId: 1,
+    // internals: grids, fractional algae accumulator, milestones already announced
+    _grid: new CellGrid(config.width, config.height, ECOLOGY.cell),
+    _foodGrid: new CellGrid(config.width, config.height, ECOLOGY.cell),
+    _foodAcc: 0,
+    _milestones: new Map(),
+    _daughters: new Map(), // speciesId -> ids of species that split from it
+  };
+  makeLights(world);
+  for (let i = 0; i < config.maxFood * 0.6; i++) sproutAlgae(world);
+
+  const founders = [];
+  for (let i = 0; i < config.initialSpecies; i++) {
+    const g = randomGenome(rng);
+    const sp = world.species.found(g, express(g), 0, null);
+    founders.push(sp);
+  }
+  for (let i = 0; i < config.initialCreatures && founders.length; i++) {
+    const sp = founders[i % founders.length];
+    sp.totalBorn++;
+    addCreature(world, mutate(sp.representative, rng, 0.5), rng.range(20, config.width - 20), rng.range(20, config.height - 20), sp.id, null);
+  }
+  sample(world);
+  return world;
+}
+
+function reseed(world) {
+  const { rng } = world;
+  const living = world.species.living();
+  for (let i = 0; i < 20; i++) {
+    const g = living.length ? mutate(living[i % living.length].representative, rng, 0.5) : randomGenome(rng);
+    const c = spawnCreature(world, g, rng.range(20, world.width - 20), rng.range(20, world.height - 20));
+    c.energy = c.pheno.maxEnergy * 0.7;
+  }
+}
+
+function sample(world) {
+  const bySpecies = {};
+  for (const c of world.creatures) bySpecies[c.speciesId] = (bySpecies[c.speciesId] || 0) + 1;
+  world.history.push({ tick: world.tick, population: world.creatures.length, food: world.food.length, bySpecies });
+  if (world.history.length > HISTORY_CAP) world.history.shift();
+}
+
+function census(world) {
+  for (const ev of world.species.census(world.creatures, world.tick)) {
+    emit(world, { type: ev.type, speciesId: ev.speciesId });
+  }
+  for (const sp of world.species.living()) {
+    let reached = 0;
+    for (const m of MILESTONES) if (sp.population >= m) reached = m;
+    if (reached > (world._milestones.get(sp.id) || 0)) {
+      world._milestones.set(sp.id, reached);
+      emit(world, { type: 'milestone', speciesId: sp.id, population: reached });
+    }
+  }
+}
+
+function relAngle(dx, dy, heading) {
+  let a = Math.atan2(dy, dx) - heading;
+  a -= TAU * Math.floor((a + Math.PI) / TAU);
+  return a / Math.PI;
+}
+
+function die(world, c, cause) {
+  c.alive = false;
+  c.causeOfDeath = cause;
+  world.stats.deaths++;
+  emit(world, { type: 'death', creatureId: c.id, speciesId: c.speciesId, cause, age: c.age });
+  // Carcasses feed the algae-eaters; eaten bodies leave only scraps.
+  const left = cause === 'eaten' ? 0.25 : 1;
+  const r = c.pheno.radius;
+  const e = (4 + r * r * 0.12 + Math.max(0, c.energy) * 0.2) * left;
+  if (e > 2 && world.food.length < world.config.maxFood + 150) addFood(world, c.x, c.y, e);
+}
+
+function sense(world, c, inp, out) {
+  const { creatures, food, _grid: grid, _foodGrid: fgrid } = world;
+  const p = c.pheno;
+  const R = p.senseRange, R2 = R * R;
+  const x = c.x, y = c.y;
+  const x0 = fgrid.cx(x - R), x1 = fgrid.cx(x + R), y0 = fgrid.cy(y - R), y1 = fgrid.cy(y + R);
+  const cols = fgrid.cols;
+
+  let bestF = R2, fx = 0, fy = 0, hasF = false;
+  for (let gy = y0; gy <= y1; gy++) {
+    for (let gx = x0; gx <= x1; gx++) {
+      const cell = gy * cols + gx;
+      for (let k = fgrid.start[cell], e = fgrid.start[cell + 1]; k < e; k++) {
+        const f = food[fgrid.items[k]];
+        if (f.energy <= 0) continue;
+        const dx = f.x - x, dy = f.y - y, d2 = dx * dx + dy * dy;
+        if (d2 < bestF) { bestF = d2; fx = dx; fy = dy; hasF = true; }
+      }
+    }
+  }
+
+  const r = p.radius, preyMax = r * 0.8, threatMin = r * 1.25;
+  let bestP = R2, px = 0, py = 0, hasP = false;
+  let bestT = R2, tx = 0, ty = 0, hasT = false;
+  let bestK = R2, kx = 0, ky = 0, kin = null;
+  const n = grid.start[grid.start.length - 1];
+  for (let gy = y0; gy <= y1; gy++) {
+    for (let gx = x0; gx <= x1; gx++) {
+      const cell = gy * cols + gx;
+      for (let k = grid.start[cell], e = grid.start[cell + 1]; k < e; k++) {
+        const idx = grid.items[k];
+        if (idx >= n) continue;
+        const o = creatures[idx];
+        if (o === c || !o.alive) continue;
+        const dx = o.x - x, dy = o.y - y, d2 = dx * dx + dy * dy;
+        if (d2 >= R2) continue;
+        const or = o.pheno.radius;
+        if (or < preyMax) { if (d2 < bestP) { bestP = d2; px = dx; py = dy; hasP = true; } }
+        else if (or > threatMin && o.pheno.diet > 0.5) { if (d2 < bestT) { bestT = d2; tx = dx; ty = dy; hasT = true; } }
+        if (o.speciesId === c.speciesId && d2 < bestK) { bestK = d2; kx = dx; ky = dy; kin = o; }
+      }
+    }
+  }
+
+  const h = c.angle;
+  inp[0] = hasF ? relAngle(fx, fy, h) : 0;
+  inp[1] = hasF ? 1 - Math.sqrt(bestF) / R : 0;
+  inp[2] = hasP ? relAngle(px, py, h) : 0;
+  inp[3] = hasP ? 1 - Math.sqrt(bestP) / R : 0;
+  inp[4] = hasT ? relAngle(tx, ty, h) : 0;
+  inp[5] = hasT ? 1 - Math.sqrt(bestT) / R : 0;
+  inp[6] = kin ? relAngle(kx, ky, h) : 0;
+  inp[7] = kin ? 1 - Math.sqrt(bestK) / R : 0;
+  inp[8] = c.energy / p.maxEnergy;
+  const wd = Math.min(x, y, world.width - x, world.height - y);
+  const w = 1 - wd / R;
+  inp[9] = w < 0 ? 0 : w > 1 ? 1 : w;
+  inp[10] = Math.sin(c.age * 0.05);
+  inp[11] = 1;
+  out.kin = kin;
+}
+
+function graze(world, c) {
+  const { food, _foodGrid: g } = world;
+  const r = c.pheno.radius + 2;
+  const eff = Math.pow(1 - c.pheno.diet, ECOLOGY.grazeExponent);
+  const x0 = g.cx(c.x - r), x1 = g.cx(c.x + r), y0 = g.cy(c.y - r), y1 = g.cy(c.y + r);
+  for (let gy = y0; gy <= y1; gy++) {
+    for (let gx = x0; gx <= x1; gx++) {
+      const cell = gy * g.cols + gx;
+      for (let k = g.start[cell], e = g.start[cell + 1]; k < e; k++) {
+        const f = food[g.items[k]];
+        if (f.energy <= 0) continue;
+        const dx = f.x - c.x, dy = f.y - c.y;
+        if (dx * dx + dy * dy < r * r) {
+          c.energy += f.energy * eff;
+          f.energy = 0;
+        }
+      }
+    }
+  }
+}
+
+function hunt(world, c) {
+  const { creatures, _grid: g } = world;
+  const p = c.pheno;
+  const reach = p.radius + 14 * 0.85;
+  const starving = c.energy < p.maxEnergy * ECOLOGY.starvingFraction;
+  const n = g.start[g.start.length - 1];
+  const x0 = g.cx(c.x - reach), x1 = g.cx(c.x + reach), y0 = g.cy(c.y - reach), y1 = g.cy(c.y + reach);
+  for (let gy = y0; gy <= y1; gy++) {
+    for (let gx = x0; gx <= x1; gx++) {
+      const cell = gy * g.cols + gx;
+      for (let k = g.start[cell], e = g.start[cell + 1]; k < e; k++) {
+        const idx = g.items[k];
+        if (idx >= n) continue;
+        const o = creatures[idx];
+        if (o === c || !o.alive) continue;
+        const or = o.pheno.radius;
+        if (or >= p.radius * 0.85) continue;
+        if (o.speciesId === c.speciesId && !starving) continue;
+        const dx = o.x - c.x, dy = o.y - c.y, rr = p.radius + or;
+        if (dx * dx + dy * dy > rr * rr) continue;
+        const gain = (Math.max(0, o.energy) * ECOLOGY.preyEnergyShare + or * or * ECOLOGY.preyBodyValue) * p.diet;
+        c.energy += gain;
+        c.kills++;
+        c.cooldown = ECOLOGY.digestTicks;
+        world.stats.predations++;
+        emit(world, { type: 'predation', predatorId: c.id, preyId: o.id, predatorSpecies: c.speciesId, preySpecies: o.speciesId });
+        die(world, o, 'eaten');
+        return; // one kill per bite
+      }
+    }
+  }
+}
+
+function reproduce(world, c, kin) {
+  const { rng } = world;
+  const p = c.pheno;
+  const pool = c.energy * (1 - ECOLOGY.parentKeeps) * (1 - ECOLOGY.birthLoss);
+  c.energy *= ECOLOGY.parentKeeps;
+  const each = pool / p.litterSize;
+  for (let i = 0; i < p.litterSize; i++) {
+    let g = c.genome;
+    if (kin && kin.alive && rng.next() < ECOLOGY.crossoverChance) g = crossover(g, kin.genome, rng);
+    g = mutate(g, rng, ECOLOGY.mutationStrength);
+    const a = c.angle + Math.PI + rng.range(-1, 1);
+    const d = p.radius * 1.5;
+    const child = spawnCreature(world, g, c.x + Math.cos(a) * d, c.y + Math.sin(a) * d, c);
+    child.energy = Math.min(child.pheno.maxEnergy, each);
+    child.angle = a;
+  }
+}
+
+const senseOut = { kin: null };
+
+function step(world) {
+  world.tick++;
+  const { creatures, config } = world;
+  driftLights(world);
+
+  world._foodAcc += config.foodRate;
+  while (world._foodAcc >= 1) {
+    world._foodAcc -= 1;
+    if (world.food.length < config.maxFood) sproutAlgae(world);
+  }
+
+  world._grid.build(creatures);
+  world._foodGrid.build(world.food);
+
+  const n = creatures.length;
+  for (let i = 0; i < n; i++) {
+    const c = creatures[i];
+    if (!c.alive) continue;
+    const p = c.pheno;
+    sense(world, c, c.inputs, senseOut);
+    const o = c.brain.think(c.inputs);
+    const turn = o[0], thrust = o[1], bite = o[2];
+    c.outputs[0] = turn; c.outputs[1] = thrust; c.outputs[2] = bite;
+
+    c.angle += turn * p.turnRate;
+    c.speed += (thrust * p.maxSpeed - c.speed) * 0.3;
+    c.x += Math.cos(c.angle) * c.speed;
+    c.y += Math.sin(c.angle) * c.speed;
+    const r = p.radius;
+    if (c.x < r) { c.x = r; c.angle = Math.PI - c.angle; }
+    else if (c.x > world.width - r) { c.x = world.width - r; c.angle = Math.PI - c.angle; }
+    if (c.y < r) { c.y = r; c.angle = -c.angle; }
+    else if (c.y > world.height - r) { c.y = world.height - r; c.angle = -c.angle; }
+    if (c.angle > Math.PI || c.angle < -Math.PI) c.angle -= TAU * Math.floor((c.angle + Math.PI) / TAU);
+
+    c.energy -= p.metabolism + ECOLOGY.moveCost * c.speed * c.speed * r + ECOLOGY.biteCost * bite;
+    if (p.diet < 0.999) graze(world, c);
+    if (c.cooldown > 0) c.cooldown--;
+    else if (bite > 0.5 && p.diet > 0.35) hunt(world, c);
+    if (c.energy > p.maxEnergy) c.energy = p.maxEnergy;
+
+    c.age++;
+    if (c.energy <= 0) { die(world, c, 'starvation'); continue; }
+    if (c.age > p.lifespan) { die(world, c, 'old age'); continue; }
+    if (c.age > ECOLOGY.minBreedAge && c.energy >= p.reproduceAt * p.maxEnergy && creatures.length < config.maxCreatures) {
+      reproduce(world, c, senseOut.kin);
+    }
+  }
+
+  // Compact dead creatures and eaten food in place.
+  let w = 0;
+  for (let i = 0; i < creatures.length; i++) if (creatures[i].alive) creatures[w++] = creatures[i];
+  creatures.length = w;
+  const food = world.food;
+  w = 0;
+  for (let i = 0; i < food.length; i++) if (food[i].energy > 0) food[w++] = food[i];
+  food.length = w;
+
+  if (creatures.length === 0) reseed(world);
+  if (world.tick % SAMPLE_EVERY === 0) {
+    census(world);
+    sample(world);
+  }
+}
+
+function findCreatureAt(world, x, y, slop = 6) {
+  let best = null, bestD = Infinity;
+  for (const c of world.creatures) {
+    const dx = c.x - x, dy = c.y - y;
+    const d = Math.sqrt(dx * dx + dy * dy) - c.pheno.radius;
+    if (d <= slop && d < bestD) { bestD = d; best = c; }
+  }
+  return best;
+}
+
+return { DAY, ECOLOGY, spawnCreature, createWorld, step, findCreatureAt };
+})();
+
+const __m6 = (() => {
+
+// The naturalist's notebook: turns simulation events into short journal lines.
+// Phrasing is chosen by hashing the event, never by rng, so narrating an event
+// cannot change the simulation and the same event always reads the same.
+//
+// The pool throws off many one-creature "species" that vanish at once, so the
+// journal is selective: a new species is announced when it has established
+// itself (a few births), and ephemeral forms only get the odd summary line.
+
+// Local copy of world.js's DAY; importing world.js would risk an import cycle.
+const TICKS_PER_DAY = 600;
+// A daughter species is worth a line once it has this many births or this census peak.
+const ESTABLISHED_BORN = 8;
+const ESTABLISHED_PEAK = 5;
+
+// Per-world memory (which prey have been taken, records broken, ...).
+const memos = new WeakMap();
+const orphanMemo = freshMemo();
+
+function freshMemo() {
+  return {
+    announced: new Set(),     // daughter species already introduced
+    preySeen: new Set(),
+    predatorSeen: new Set(),
+    cannibalSeen: new Set(),
+    anyKill: false,
+    speciations: 0,           // announced so far
+    milestones: new Map(),    // speciesId -> highest milestone narrated
+    oldAgeRecord: 0,
+    oldAgeRecordTick: -Infinity,
+    oldAgeCount: 0,
+    maxAgeSeen: 0,
+    nextKillMark: 0,          // index into KILL_MARKS
+    nextGeneration: 0,        // index into GENERATIONS
+    highs: new Map(),         // speciesId -> { pop, tick } recent high-water mark
+    ephemeral: 0,             // unremarked extinctions since the last summary
+    ephemeralTick: 0,
+    restockTick: -1,
+    firstsTick: -Infinity,    // last "first kill/loss" line, to keep them from crowding the page
+  };
+}
+
+function memoFor(world) {
+  if (!world || typeof world !== 'object') return orphanMemo;
+  let m = memos.get(world);
+  if (!m) { m = freshMemo(); memos.set(world, m); }
+  return m;
+}
+
+// ---------- small text helpers ----------
+function hashEvent(event, salt) {
+  let h = Math.imul((event.seq | 0) ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul((event.tick | 0) + salt, 0xc2b2ae35);
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+  h = Math.imul(h ^ (h >>> 13), 0x45d9f3b);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+function choose(event, salt, options) {
+  return options[hashEvent(event, salt) % options.length];
+}
+
+const capFirst = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const dayOf = (tick) => Math.floor((tick || 0) / TICKS_PER_DAY) + 1;
+const article = (word) => ('AEIOUaeiou'.includes(word.charAt(0)) ? 'an' : 'a');
+const withArticle = (word) => article(word) + ' ' + word;
+
+const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+  'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+
+function numberWord(n) {
+  if (n < 0 || !Number.isInteger(n)) return String(n);
+  if (n < 20) return ONES[n];
+  if (n < 100) return TENS[Math.floor(n / 10)] + (n % 10 ? '-' + ONES[n % 10] : '');
+  if (n === 100) return 'a hundred';
+  if (n % 100 === 0 && n < 1000) return ONES[n / 100] + ' hundred';
+  return String(n);
+}
+
+function ordinal(n) {
+  const s = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][n % 10];
+  return n + s;
+}
+
+function duration(ticks) {
+  const days = ticks / TICKS_PER_DAY;
+  if (days < 1) return 'less than a day';
+  const d = Math.round(days);
+  return d === 1 ? 'a single day' : numberWord(d) + ' days';
+}
+
+// Pluralise the noun of a common name: Dartfin -> Dartfins, Goby -> Gobies,
+// Crimson Dartfin II -> Crimson Dartfins II.
+function plural(common) {
+  const m = /^(.*?)( [IVXLCDM]+)?$/.exec(common);
+  const base = m[1], numeral = m[2] || '';
+  let out;
+  if (/(fish|fry)$/i.test(base)) out = base;
+  else if (/[^aeiou]y$/i.test(base)) out = base.slice(0, -1) + 'ies';
+  else if (/(s|sh|ch|x)$/i.test(base)) out = base + 'es';
+  else out = base + 's';
+  return out + numeral;
+}
+
+// ---------- species lookups that never throw ----------
+function speciesOf(world, id) {
+  try {
+    const reg = world && world.species;
+    if (reg && typeof reg.get === 'function' && id != null) return reg.get(id) || null;
+  } catch (e) { /* a broken registry should not take the journal down */ }
+  return null;
+}
+
+function allSpecies(world) {
+  try {
+    const reg = world && world.species;
+    if (reg && typeof reg.all === 'function') return reg.all() || [];
+  } catch (e) { /* see above */ }
+  return [];
+}
+
+function nameOf(sp) {
+  const n = sp && sp.name;
+  if (!n || !n.common) return null;
+  return { common: n.common, latin: (n.genus || '') + (n.epithet ? ' ' + n.epithet : '') };
+}
+
+function latinOf(sp) {
+  const n = nameOf(sp);
+  return n ? n.latin : 'incertae sedis';
+}
+function commonOf(sp) {
+  const n = nameOf(sp);
+  return n ? n.common : 'unrecorded creature';
+}
+function commonPlural(sp) {
+  const n = nameOf(sp);
+  return n ? plural(n.common) : 'unrecorded creatures';
+}
+// "the Banded Glimmerfin (Lucipinna fasciata)"
+function full(sp) {
+  return nameOf(sp) ? `the ${commonOf(sp)} (${latinOf(sp)})` : 'a form I failed to record';
+}
+// "the Banded Glimmerfins (Lucipinna fasciata)"
+function fullPlural(sp) {
+  return nameOf(sp) ? `the ${commonPlural(sp)} (${latinOf(sp)})` : 'some creatures I failed to record';
+}
+
+// Originals and daughters that have found their feet; everything else is noise.
+function established(sp, memo) {
+  if (!sp) return false;
+  return sp.parentId == null || memo.announced.has(sp.id)
+    || (sp.peakPopulation || 0) >= ESTABLISHED_PEAK || (sp.totalBorn || 0) >= ESTABLISHED_BORN;
+}
+
+// Introduced in the journal already (or an original), so it can be named in other lines.
+function known(sp, memo) {
+  return !!sp && (sp.parentId == null || memo.announced.has(sp.id));
+}
+
+function findCreature(world, id) {
+  const list = world && world.creatures;
+  if (!Array.isArray(list) || id == null) return null;
+  for (let i = 0; i < list.length; i++) if (list[i] && list[i].id === id) return list[i];
+  return null;
+}
+
+// What sets a daughter species apart from its parent, as a sentence.
+function difference(child, parent) {
+  const c = child && child.pheno, p = parent && parent.pheno;
+  if (!c || !p) return null;
+  const options = [];
+  if (p.diet < 0.5 && c.diet >= 0.5) options.push([3, 'It has acquired a taste for its neighbours.']);
+  if (p.diet >= 0.5 && c.diet < 0.5) options.push([3, 'It has given up hunting for a quieter life among the algae.']);
+  const size = c.radius / p.radius;
+  if (size > 1.2) options.push([size - 1, 'It is noticeably larger than its forebears.']);
+  if (size < 0.83) options.push([1 / size - 1, 'It is smaller and neater than its forebears.']);
+  const speed = c.maxSpeed / p.maxSpeed;
+  if (speed > 1.25) options.push([speed - 1, 'It is a good deal quicker.']);
+  if (speed < 0.8) options.push([1 / speed - 1, 'It is altogether more leisurely.']);
+  if (c.finCount > p.finCount) options.push([0.3, 'It has grown an extra pair of fins.']);
+  if (c.finCount < p.finCount) options.push([0.3, 'It seems to have mislaid a pair of fins.']);
+  if (c.pattern !== p.pattern) {
+    const word = { spots: 'spots', stripes: 'stripes', bands: 'bands' };
+    let text;
+    if (p.pattern === 'plain') text = `It has taken to wearing ${word[c.pattern]}.`;
+    else if (c.pattern === 'plain') text = 'It has lost its markings entirely.';
+    else text = `It wears ${word[c.pattern]} where its ancestors wore ${word[p.pattern]}.`;
+    options.push([0.45, text]);
+  }
+  const dh = Math.abs(((c.hue - p.hue + 540) % 360) - 180);
+  if (dh > 60) options.push([dh / 300, 'It is a different colour altogether.']);
+  if (c.tailLength / p.tailLength > 1.3) options.push([0.35, 'It sports a longer, showier tail.']);
+  if (c.senseRange / p.senseRange > 1.3) options.push([0.35, 'Its senses are notably keener.']);
+  if (!options.length) return null;
+  options.sort((a, b) => b[0] - a[0]);
+  return options[0][1];
+}
+
+// ---------- event narrators ----------
+function announce(event, world, memo, D, sp) {
+  memo.announced.add(sp.id);
+  const parent = speciesOf(world, sp.parentId);
+  const first = memo.speciations === 0;
+  memo.speciations++;
+  const S = full(sp);
+  const since = sp.founderTick != null && dayOf(sp.founderTick) < dayOf(event.tick) ? ` since day ${dayOf(sp.founderTick)}` : '';
+  if (!parent) {
+    return choose(event, 1, [
+      `${D} A new form has settled in: ${S}, of no parentage I can trace.`,
+      `${D} Added ${S} to the notebook. Its origins are a mystery to me.`,
+    ]);
+  }
+  const diff = difference(sp, parent);
+  const extra = diff ? ' ' + diff : '';
+  if (first) {
+    return choose(event, 2, [
+      `${D} The pool's first new species: ${S}, split from ${full(parent)}.${extra}`,
+      `${D} It has happened at last. ${capFirst(S)} has branched off from ${full(parent)}.${extra}`,
+    ]);
+  }
+  return choose(event, 3, [
+    `${D} A new form has appeared: ${S}, descended from the ${commonOf(parent)}.`,
+    `${D} Some of the ${commonPlural(parent)} have drifted far enough from their kin to earn a name of their own: ${S}.`,
+    `${D} I am now fairly sure ${S} is its own species, an offshoot of the ${commonOf(parent)}.${extra}`,
+    `${D} Entered a new species in the notebook: ${S}, daughter of the ${commonOf(parent)}.${extra}`,
+    `${D} ${capFirst(S)} has been breeding true${since}; a new branch off the ${commonOf(parent)}.`,
+  ]);
+}
+
+function speciation(event, world, memo, D) {
+  // Daughter species are introduced once established (see birth). A parentless
+  // speciation after tick 0 means the world restocked an empty pool.
+  if (event.parentId != null || !(event.tick > 0) || memo.restockTick === event.tick) return null;
+  memo.restockTick = event.tick;
+  const sp = speciesOf(world, event.speciesId);
+  if (sp) memo.announced.add(sp.id);
+  return choose(event, 17, [
+    `${D} The pool had emptied entirely. New stock has drifted in, ${nameOrStrangers(sp)} among them.`,
+    `${D} Nothing was left alive, and then, as if on cue, fresh arrivals: ${nameOrStrangers(sp)} and others.`,
+  ]);
+}
+const nameOrStrangers = (sp) => (sp ? full(sp) : 'strangers');
+
+function extinction(event, world, memo, D) {
+  const sp = speciesOf(world, event.speciesId);
+  if (!sp) return null;
+  const peak = sp.peakPopulation || 0;
+  if (!established(sp, memo)) {
+    // Fleeting forms get a collective shrug now and then instead of one line each.
+    memo.ephemeral++;
+    if (memo.ephemeral >= 12 && (event.tick || 0) - memo.ephemeralTick >= TICKS_PER_DAY * 3) {
+      const n = memo.ephemeral;
+      memo.ephemeral = 0;
+      memo.ephemeralTick = event.tick || 0;
+      return choose(event, 18, [
+        `${D} Another ${numberWord(n)} fleeting forms have come and gone without my managing to sketch one. The latest was ${full(sp)}.`,
+        `${D} The pool keeps trying out new shapes and discarding them; ${numberWord(n)} more short-lived offshoots since I last counted.`,
+        `${D} Tallied ${numberWord(n)} would-be species that never got going. The pool is a harsh editor.`,
+      ]);
+    }
+    return null;
+  }
+  const end = sp.extinctTick ?? event.tick ?? 0;
+  const lasted = Math.max(0, end - (sp.founderTick || 0));
+  const dur = duration(lasted);
+  const S = full(sp);
+  let line;
+  if (peak <= 3) {
+    line = choose(event, 4, [
+      `${D} ${capFirst(S)} came and went in ${dur}, before I had properly sketched it.`,
+      `${D} A brief experiment, ${S}: gone after ${dur}, never more than ${numberWord(peak)}.`,
+    ]);
+  } else {
+    line = choose(event, 5, [
+      `${D} The last ${commonOf(sp)} (${latinOf(sp)}) is gone. It lasted ${dur} and never numbered more than ${peak}.`,
+      `${D} No ${commonPlural(sp)} left in the pool. ${capFirst(dur)} from first sighting to last; at their height there were ${peak}.`,
+      `${D} I have stopped looking for ${S}; it is extinct. A run of ${dur}, peaking at ${peak}.`,
+      peak >= 20
+        ? `${D} ${capFirst(S)} has died out after ${dur}. ${capFirst(numberWord(peak))} at its peak, which is a respectable showing.`
+        : `${D} ${capFirst(S)} has died out after ${dur}. It never managed more than ${numberWord(peak)}.`,
+      `${D} Struck ${S} from the list of the living. ${capFirst(dur)}, and at best ${numberWord(peak)} of them.`,
+    ]);
+  }
+  // Extinction with living heirs reads differently.
+  const heirs = allSpecies(world).filter((s) => s && s.parentId === sp.id && s.extinctTick == null
+    && s.population > 0 && established(s, memo));
+  if (heirs.length) {
+    const names = heirs.slice(0, 2).map((h) => `the ${commonOf(h)}`).join(' and ');
+    line += ` Its line goes on in ${names}${heirs.length > 2 ? ' and others' : ''}.`;
+  }
+  return line;
+}
+
+function milestone(event, world, memo, D) {
+  const pop = event.population | 0;
+  if (pop <= 0) return null;
+  const done = memo.milestones.get(event.speciesId) || 0;
+  if (pop <= done) return null;
+  memo.milestones.set(event.speciesId, pop);
+  const sp = speciesOf(world, event.speciesId);
+  const S = fullPlural(sp), Pl = commonPlural(sp), w = numberWord(pop);
+  const predator = sp && sp.pheno && sp.pheno.diet > 0.5;
+  if (pop >= 100) {
+    return choose(event, 6, [
+      `${D} ${capFirst(S)} now number ${w}. At this point they are less a species than a weather system.`,
+      `${D} Over ${w} ${Pl} today. The pool is starting to look like theirs.`,
+      `${D} I counted ${w} ${Pl} before giving up and calling it ${w}.`,
+    ]);
+  }
+  return choose(event, 7, [
+    `${D} ${capFirst(S)} now number ${w}, a new high.`,
+    `${D} Counted ${w} ${Pl} today; they are doing well for themselves.`,
+    predator
+      ? `${D} ${capFirst(S)} have reached ${w}. Their prey may have opinions about this.`
+      : `${D} ${capFirst(S)} have reached ${w}. The algae may have opinions about this.`,
+    `${D} ${capFirst(w)} ${Pl} and counting.`,
+  ]);
+}
+
+const KILL_MARKS = [10, 20, 35, 50, 75, 100, 150, 200];
+
+function predation(event, world, memo, D) {
+  const predSp = event.predatorSpecies, preySp = event.preySpecies;
+  const pred = speciesOf(world, predSp), prey = speciesOf(world, preySp);
+  const pc = commonOf(pred), yc = commonOf(prey);
+
+  if (!memo.anyKill) {
+    memo.anyKill = true;
+    if (predSp != null) memo.predatorSeen.add(predSp);
+    if (preySp != null) memo.preySeen.add(preySp);
+    return choose(event, 8, [
+      `${D} The first kill I have witnessed in the pool: ${full(pred)} took ${withArticle(yc)}.`,
+      `${D} So it begins. ${capFirst(withArticle(pc))} (${latinOf(pred)}) has eaten ${withArticle(yc)}, and the pool is a little less innocent.`,
+    ]);
+  }
+  // Firsts only count for species already introduced, and at most one every half day;
+  // a suppressed first is still marked seen so it doesn't resurface later.
+  const quiet = (event.tick || 0) - memo.firstsTick < TICKS_PER_DAY / 2;
+  if (predSp != null && predSp === preySp) {
+    if (memo.cannibalSeen.has(predSp) || !known(pred, memo)) return null;
+    memo.cannibalSeen.add(predSp);
+    if (quiet) return null;
+    memo.firstsTick = event.tick || 0;
+    return choose(event, 9, [
+      `${D} ${capFirst(withArticle(pc))} ate one of its own. Hunger makes poor manners.`,
+      `${D} Cannibalism among ${fullPlural(pred)}. I will assume times are hard.`,
+    ]);
+  }
+  if (preySp != null && !memo.preySeen.has(preySp) && known(prey, memo)) {
+    memo.preySeen.add(preySp);
+    if (predSp != null) memo.predatorSeen.add(predSp);
+    if (quiet) return null;
+    memo.firstsTick = event.tick || 0;
+    return choose(event, 10, [
+      `${D} ${capFirst(withArticle(pc))} was seen taking ${withArticle(yc)}, the first of that kind I have seen fall to a predator.`,
+      `${D} ${capFirst(fullPlural(prey))} have learned the hard way that the ${plural(pc)} are hungry.`,
+      `${D} First recorded loss among ${fullPlural(prey)}: one went down to ${withArticle(pc)}.`,
+    ]);
+  }
+  if (predSp != null && !memo.predatorSeen.has(predSp) && known(pred, memo)) {
+    memo.predatorSeen.add(predSp);
+    if (quiet) return null;
+    memo.firstsTick = event.tick || 0;
+    return choose(event, 11, [
+      `${D} ${capFirst(full(pred))} has made its first recorded kill, ${withArticle(yc)}.`,
+      `${D} Noted: the ${plural(pc)} hunt. One was seen making off with ${withArticle(yc)}.`,
+    ]);
+  }
+  // A single prolific hunter is worth a line at round numbers.
+  if (memo.nextKillMark >= KILL_MARKS.length) return null;
+  const hunter = findCreature(world, event.predatorId);
+  const kills = hunter && typeof hunter.kills === 'number' ? hunter.kills : 0;
+  if (kills < KILL_MARKS[memo.nextKillMark]) return null;
+  while (memo.nextKillMark < KILL_MARKS.length && kills >= KILL_MARKS[memo.nextKillMark]) memo.nextKillMark++;
+  return choose(event, 12, [
+    `${D} One ${pc} has now made ${numberWord(kills)} kills, the most of any creature I have followed.`,
+    `${D} There is ${withArticle(pc)} out there with ${numberWord(kills)} kills to its name. I have started giving it a wide berth, figuratively.`,
+  ]);
+}
+
+function death(event, world, memo, D) {
+  const age = event.age || 0;
+  if (age > memo.maxAgeSeen) memo.maxAgeSeen = age;
+  const sp = speciesOf(world, event.speciesId);
+  if (event.cause === 'old age') {
+    const firstOld = memo.oldAgeCount === 0;
+    memo.oldAgeCount++;
+    // Only genuine records, spaced out a little, so the notebook isn't all obituaries.
+    const record = age > memo.oldAgeRecord * 1.03 && age >= 0.85 * memo.maxAgeSeen
+      && (event.tick || 0) - memo.oldAgeRecordTick >= TICKS_PER_DAY / 2;
+    if (firstOld || record) {
+      memo.oldAgeRecord = Math.max(memo.oldAgeRecord, age);
+      memo.oldAgeRecordTick = event.tick || 0;
+      const c = commonOf(sp), a = duration(age);
+      if (firstOld) {
+        return choose(event, 13, [
+          `${D} ${capFirst(withArticle(c))} died of old age at ${a}, the first in the pool to simply run out of years.`,
+          `${D} The first death from old age: ${withArticle(c)} (${latinOf(sp)}), aged ${a}.`,
+        ]);
+      }
+      return choose(event, 14, [
+        `${D} The oldest creature I have yet recorded, ${withArticle(c)} of ${a}, died quietly today.`,
+        `${D} A venerable ${c} has died at ${a}. Nothing in the pool has lived longer.`,
+        `${D} Old age took ${withArticle(c)} today, at a remarkable ${a}.`,
+      ]);
+    }
+  }
+  return crashCheck(event, memo, D, sp);
+}
+
+// Populations are only updated at census, so checking on deaths is cheap and timely enough.
+function crashCheck(event, memo, D, sp) {
+  if (!sp || typeof sp.population !== 'number') return null;
+  const tick = event.tick || 0;
+  const pop = sp.population;
+  let hi = memo.highs.get(sp.id);
+  if (!hi || pop >= hi.pop) { memo.highs.set(sp.id, { pop, tick }); return null; }
+  if (tick - hi.tick > TICKS_PER_DAY * 3) {
+    // A stale high decays, so a slow decline isn't reported as a crash.
+    hi = { pop: Math.max(pop, Math.round(hi.pop * 0.7)), tick };
+    memo.highs.set(sp.id, hi);
+  }
+  if (hi.pop >= 16 && pop > 0 && pop <= hi.pop * 0.35) {
+    memo.highs.set(sp.id, { pop, tick });
+    return crashLine(event, sp, hi.pop, pop, tick - hi.tick, D);
+  }
+  return null;
+}
+
+function crashLine(event, sp, from, to, ticks, D) {
+  const Pl = commonPlural(sp);
+  return choose(event, 15, [
+    `${D} The ${Pl} have crashed, from ${from} to ${to} in ${duration(ticks)}.`,
+    `${D} Hard times for ${fullPlural(sp)}: barely ${numberWord(to)} remain of the ${numberWord(from)} I counted recently.`,
+    `${D} Something has gone wrong for the ${Pl}. ${capFirst(numberWord(to))} left, down from ${from}.`,
+  ]);
+}
+
+const GENERATIONS = [10, 25, 50, 100, 150, 200, 300, 500, 750, 1000];
+
+function birth(event, world, memo, D) {
+  const sp = speciesOf(world, event.speciesId);
+  if (sp && sp.parentId != null && !memo.announced.has(sp.id) && established(sp, memo)) {
+    return announce(event, world, memo, D, sp);
+  }
+  const g = world && world.stats ? world.stats.generationMax : undefined;
+  if (typeof g !== 'number') return null;
+  let reached = 0;
+  while (memo.nextGeneration < GENERATIONS.length && g >= GENERATIONS[memo.nextGeneration]) {
+    reached = GENERATIONS[memo.nextGeneration++];
+  }
+  if (!reached) return null;
+  return choose(event, 16, [
+    `${D} The oldest lineages in the pool now run to ${reached} generations.`,
+    `${D} Somewhere in the pool, a ${ordinal(reached)}-generation hatchling. The founders would hardly know it.`,
+    `${D} Generation ${reached}. I have long since stopped drawing family trees.`,
+  ]);
+}
+
+const HANDLERS = { speciation, extinction, milestone, predation, death, birth };
+
+function narrate(event, world) {
+  if (!event || typeof event !== 'object') return null;
+  try {
+    const memo = memoFor(world);
+    const D = `Day ${dayOf(event.tick)}.`;
+    if (event.type === 'crash') {
+      const sp = speciesOf(world, event.speciesId);
+      if (!sp || event.from == null || event.to == null) return null;
+      return crashLine(event, sp, event.from, event.to, event.ticks || 0, D);
+    }
+    const handler = HANDLERS[event.type];
+    return handler ? handler(event, world, memo, D) : null;
+  } catch (e) {
+    // The journal is decoration; it must never break the simulation loop.
+    return null;
+  }
+}
+
+return { narrate };
+})();
+
+const __m7 = (() => {
+
+// Canvas renderer for the pool.
+// View = { scale, ox, oy }: screen (CSS px) = (world - o) * scale, so (ox, oy) is
+// the world point at the canvas's top-left corner.
+
+const TAU = Math.PI * 2;
+const looks = new WeakMap(); // pheno -> cached colours and geometry
+const SHADOW = 'rgba(0, 14, 20, 0.26)';
+const SNOW_COUNT = 150;
+const NO_DASH = [];
+const SPRITE_MAX_PX = 30; // above this on-screen radius, draw vectors (few creatures are that big)
+
+function hsla(h, s, l, a) {
+  return `hsla(${h.toFixed(1)}, ${s.toFixed(1)}%, ${l.toFixed(1)}%, ${a})`;
+}
+
+// Tiny deterministic PRNG so pattern spots and backdrop texture are stable.
+function lcg(seed) {
+  let s = (seed >>> 0) || 1;
+  return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
+}
+
+// Everything about a creature's look that doesn't change frame to frame,
+// computed once per phenotype so the draw loop builds no strings.
+function lookFor(p) {
+  let L = looks.get(p);
+  if (L) return L;
+  const sa = Math.sqrt(p.bodyAspect);
+  const r = p.radius, rx = r * sa, ry = r / sa;
+  const h = p.hue, s = p.saturation, l = p.lightness;
+  const predator = p.diet > 0.5;
+  const ph = p.patternHue;
+  const rand = lcg(Math.floor(h * 977 + ph * 131 + r * 7919 + p.bodyAspect * 104729));
+  const spots = [];
+  if (p.pattern === 'spots') {
+    const n = 3 + Math.floor(rand() * 4);
+    for (let i = 0, tries = 0; i < n && tries < 60; tries++) {
+      const u = (rand() * 2 - 1) * 0.75, v = (rand() * 2 - 1) * 0.7;
+      if (u * u + v * v > 0.6) continue;
+      spots.push(u * rx, v * ry, (0.13 + rand() * 0.12) * r);
+      i++;
+    }
+  }
+  const patL = l > 56 ? l - 28 : l + 20;
+  L = {
+    r, rx, ry, predator,
+    tl: p.tailLength * r,
+    fins: p.finCount,
+    pattern: p.pattern,
+    spots: new Float32Array(spots),
+    bars: p.pattern === 'stripes' ? 3 + Math.floor(rand() * 3) : 2,
+    front: predator ? rx * 1.32 : rx,
+    // energy-level variants: well fed, hungry, starving (desaturated, dimmer)
+    body: [hsla(h, s, l, 1), hsla(h, s * 0.7, l * 0.93, 1), hsla(h, s * 0.42, l * 0.84, 1)],
+    sheen: hsla(h, s * 0.75, Math.min(90, l + 18), 0.42),
+    rim: predator ? hsla(h, Math.min(95, s + 5), l * 0.32, 0.95) : hsla(h, s * 0.8, l * 0.55, 0.55),
+    pat: hsla(ph, Math.min(95, s + 8), patL, 0.82),
+    fin: hsla((h * 0.5 + ph * 0.5 + (Math.abs(h - ph) > 180 ? 180 : 0)) % 360, s * 0.85, Math.min(82, l + 10), 0.5),
+    tail: hsla(h, s * 0.9, l * 0.86, 0.88),
+    pupil: predator ? '#2a0606' : '#071318',
+    spr: [null, null, null], // cached body sprites per energy level
+  };
+  looks.set(p, L);
+  return L;
+}
+
+function bodyPath(ctx, L) {
+  const rx = L.rx, ry = L.ry;
+  ctx.beginPath();
+  if (L.predator) {
+    // pointed snout: the front half tapers to a tip ahead of the ellipse
+    ctx.moveTo(rx * 1.32, 0);
+    ctx.bezierCurveTo(rx * 1.0, ry * 0.5, rx * 0.55, ry * 1.02, -rx * 0.1, ry);
+    ctx.bezierCurveTo(-rx * 0.7, ry * 0.98, -rx, ry * 0.55, -rx, 0);
+    ctx.bezierCurveTo(-rx, -ry * 0.55, -rx * 0.7, -ry * 0.98, -rx * 0.1, -ry);
+    ctx.bezierCurveTo(rx * 0.55, -ry * 1.02, rx * 1.0, -ry * 0.5, rx * 1.32, 0);
+    ctx.closePath();
+  } else {
+    ctx.ellipse(0, 0, rx, ry, 0, 0, TAU);
+  }
+}
+
+// Forked tail in the creature's own frame; swing bends it sideways. Always drawn
+// live (it's the animated part), body and fins can come from a cached sprite.
+function drawTail(ctx, L, swing) {
+  const rx = L.rx, ry = L.ry;
+  const tl = L.tl, bx = -rx * 0.8;
+  const tipX = bx - tl * Math.cos(swing * 0.6), tipY = Math.sin(swing) * tl * 0.9;
+  const midX = bx - tl * 0.5, midY = tipY * 0.35;
+  const w = ry * 0.6 + tl * 0.32;
+  ctx.fillStyle = L.tail;
+  ctx.beginPath();
+  ctx.moveTo(bx, -ry * 0.36);
+  ctx.quadraticCurveTo(midX, midY - ry * 0.14, tipX, tipY - w);
+  ctx.lineTo(tipX + tl * 0.22, tipY);
+  ctx.lineTo(tipX, tipY + w);
+  ctx.quadraticCurveTo(midX, midY + ry * 0.14, bx, ry * 0.36);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// Tail + body in the creature's frame (+x = heading). detail: 1 = silhouette, 2 = full.
+// px = world units per screen pixel, for hairline widths.
+function drawLocal(ctx, L, swing, flap, level, detail, px) {
+  drawTail(ctx, L, swing);
+  drawBody(ctx, L, flap, level, detail, px);
+}
+
+function drawBody(ctx, L, flap, level, detail, px) {
+  const rx = L.rx, ry = L.ry, r = L.r;
+
+  if (detail > 1 && L.fins > 0) {
+    ctx.fillStyle = L.fin;
+    ctx.beginPath();
+    const n = L.fins;
+    for (let i = 0; i < n; i++) {
+      const fx = rx * (0.35 - (0.95 * i) / Math.max(1, n - 0.5));
+      const len = r * (0.62 - i * 0.07);
+      const a = 0.8 + flap * (0.28 + i * 0.05);
+      const ca = Math.cos(a), sn = Math.sin(a);
+      for (let sgn = -1; sgn <= 1; sgn += 2) {
+        const ax = fx, ay = sgn * ry * 0.72;
+        const cx = ax - ca * len * 0.5, cy = ay + sgn * sn * len * 0.5;
+        const rot = sgn * (Math.PI - a);
+        ctx.moveTo(cx + Math.cos(rot) * len * 0.5, cy + Math.sin(rot) * len * 0.5);
+        ctx.ellipse(cx, cy, len * 0.5, len * 0.2, rot, 0, TAU);
+      }
+    }
+    ctx.fill();
+  }
+
+  bodyPath(ctx, L);
+  ctx.fillStyle = L.body[level];
+  ctx.fill();
+
+  if (detail > 1) {
+    if (L.pattern !== 'plain') {
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = L.pat;
+      ctx.beginPath();
+      if (L.pattern === 'spots') {
+        const sp = L.spots;
+        for (let i = 0; i < sp.length; i += 3) {
+          ctx.moveTo(sp[i] + sp[i + 2], sp[i + 1]);
+          ctx.arc(sp[i], sp[i + 1], sp[i + 2], 0, TAU);
+        }
+      } else if (L.pattern === 'stripes') {
+        const n = L.bars, step = (rx * 1.7) / n, bw = Math.max(step * 0.28, px);
+        for (let i = 0; i < n; i++) ctx.rect(rx * 0.75 - step * (i + 0.5) - bw / 2, -ry, bw, ry * 2);
+      } else {
+        // bands: two broad saddles across the back
+        ctx.rect(rx * 0.12, -ry, rx * 0.34, ry * 2);
+        ctx.rect(-rx * 0.62, -ry, rx * 0.3, ry * 2);
+      }
+      ctx.fill();
+      ctx.restore();
+    }
+    // dorsal sheen gives the body some volume
+    ctx.fillStyle = L.sheen;
+    ctx.beginPath();
+    ctx.ellipse(rx * 0.06, -ry * 0.12, rx * 0.58, ry * 0.32, 0, 0, TAU);
+    ctx.fill();
+    bodyPath(ctx, L);
+  }
+
+  ctx.lineWidth = L.predator ? Math.max(px * 1.3, r * 0.09) : Math.max(px, r * 0.06);
+  ctx.strokeStyle = L.rim;
+  ctx.stroke();
+
+  if (detail > 1) {
+    const ex = L.predator ? rx * 0.74 : rx * 0.58, ey = ry * 0.44;
+    const er = Math.max(px * 0.9, r * 0.17);
+    ctx.fillStyle = '#eef6f2';
+    ctx.beginPath();
+    ctx.moveTo(ex + er, ey); ctx.arc(ex, ey, er, 0, TAU);
+    ctx.moveTo(ex + er, -ey); ctx.arc(ex, -ey, er, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = L.pupil;
+    ctx.beginPath();
+    const pr = er * 0.58, po = er * 0.3;
+    ctx.moveTo(ex + po + pr, ey); ctx.arc(ex + po, ey, pr, 0, TAU);
+    ctx.moveTo(ex + po + pr, -ey); ctx.arc(ex + po, -ey, pr, 0, TAU);
+    ctx.fill();
+  }
+}
+
+// Body + fins + pattern + eyes pre-rendered at `res` device px per world unit.
+// Path filling and clipping per creature is what costs at 400 creatures; a rotated
+// drawImage is nearly free, so only the tail is drawn as a live path.
+function spriteFor(L, level, res) {
+  let sp = L.spr[level];
+  if (sp && sp.res === res) return sp;
+  const pad = 2 / res;
+  const x0 = -L.rx - L.r * 0.35 - pad, x1 = L.front + pad;
+  const hh = Math.max(L.ry, L.ry * 0.72 + L.r * 0.78) + pad;
+  const w = Math.max(1, Math.ceil((x1 - x0) * res)), h = Math.max(1, Math.ceil(hh * 2 * res));
+  if (!sp) { sp = { c: makeCanvas(w, h), res: 0, x: 0, y: 0, w: 0, h: 0 }; L.spr[level] = sp; }
+  else { sp.c.width = w; sp.c.height = h; } // resizing also clears it
+  const g = sp.c.getContext('2d');
+  g.setTransform(res, 0, 0, res, -x0 * res, hh * res);
+  drawBody(g, L, 0, level, L.r * res >= 5 ? 2 : 1, 1 / res);
+  sp.res = res; sp.x = x0; sp.y = -hh; sp.w = w / res; sp.h = h / res;
+  return sp;
+}
+
+// Field-guide picture: the creature facing right, fitted into a size x size box centred on (x, y).
+function drawPortrait(ctx, pheno, x, y, size) {
+  const L = lookFor(pheno);
+  const back = L.rx * 0.8 + L.tl * 1.05;
+  const halfH = Math.max(L.ry + (L.fins > 0 ? L.r * 0.62 : 0), L.ry * 0.6 + L.tl * 0.32 + L.tl * 0.1);
+  const k = (size * 0.92) / Math.max(L.front + back, halfH * 2);
+  ctx.save();
+  ctx.translate(x + ((back - L.front) / 2) * k, y);
+  ctx.scale(k, k);
+  drawLocal(ctx, L, 0.22, 0.25, 0, 2, 1 / k);
+  ctx.restore();
+}
+
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return c;
+}
+
+// Soft radial sprite drawn with additive blending; avoids creating gradients per frame.
+function glowSprite(size, stops) {
+  const c = makeCanvas(size, size), g = c.getContext('2d');
+  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  for (const [o, col] of stops) grad.addColorStop(o, col);
+  g.fillStyle = grad;
+  g.fillRect(0, 0, size, size);
+  return c;
+}
+
+// Tileable caustic network: integer frequencies + periodic warps keep the tile seamless.
+function causticTile(n) {
+  const c = makeCanvas(n, n), g = c.getContext('2d');
+  const img = g.createImageData(n, n), d = img.data;
+  for (let j = 0; j < n; j++) {
+    for (let i = 0; i < n; i++) {
+      const a = (TAU * i) / n, b = (TAU * j) / n;
+      const w1 = 0.6 * Math.sin(a + 2 * b) + 0.4 * Math.cos(2 * a - b);
+      const w2 = 0.5 * Math.cos(a - 2 * b + 1) + 0.4 * Math.sin(3 * b + a);
+      const f = Math.sin(2 * a + w1 * 2) + Math.sin(2 * b + w2 * 2) + Math.sin(a + b + w1 + w2 + 0.7);
+      const v = Math.exp(-f * f * 3.2);
+      const k = (j * n + i) * 4;
+      d[k] = 200; d[k + 1] = 255; d[k + 2] = 238; d[k + 3] = Math.round(255 * v * v);
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+
+// Static pool floor, rendered once per world size at reduced resolution.
+function makeBackdrop(W, H) {
+  const k = Math.min(1, 1100 / Math.max(W, H));
+  const c = makeCanvas(Math.round(W * k), Math.round(H * k)), g = c.getContext('2d');
+  g.scale(k, k);
+  const base = g.createRadialGradient(W * 0.45, H * 0.4, 0, W * 0.5, H * 0.5, Math.hypot(W, H) * 0.62);
+  base.addColorStop(0, '#1d6a6c');
+  base.addColorStop(0.45, '#124d58');
+  base.addColorStop(1, '#06283a');
+  g.fillStyle = base;
+  g.fillRect(0, 0, W, H);
+  // mottled floor: soft sand patches and darker weed beds
+  const rand = lcg(7);
+  for (let i = 0; i < 46; i++) {
+    const x = rand() * W, y = rand() * H, r = 40 + rand() * 170;
+    const light = rand() < 0.45;
+    const grad = g.createRadialGradient(x, y, 0, x, y, r);
+    grad.addColorStop(0, light ? 'rgba(120, 170, 140, 0.10)' : 'rgba(2, 24, 30, 0.22)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    g.fillStyle = grad;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  // pebbles, very faint, so the floor reads as a floor when zoomed in
+  for (let i = 0; i < 260; i++) {
+    const x = rand() * W, y = rand() * H, r = 1.5 + rand() * 4;
+    g.fillStyle = rand() < 0.5 ? 'rgba(160, 200, 180, 0.05)' : 'rgba(0, 20, 25, 0.12)';
+    g.beginPath(); g.ellipse(x, y, r * 1.3, r, rand() * 3, 0, TAU); g.fill();
+  }
+  // shaded walls: the pool gets darker toward its rocky rim
+  const edge = Math.min(W, H) * 0.16;
+  const sides = [[0, 0, edge, 0, 0, 0, edge, H], [W, 0, W - edge, 0, W - edge, 0, edge, H],
+    [0, 0, 0, edge, 0, 0, W, edge], [0, H, 0, H - edge, 0, H - edge, W, edge]];
+  for (const [x0, y0, x1, y1, rx, ry, rw, rh] of sides) {
+    const grad = g.createLinearGradient(x0, y0, x1, y1);
+    grad.addColorStop(0, 'rgba(1, 14, 22, 0.75)');
+    grad.addColorStop(0.35, 'rgba(1, 14, 22, 0.25)');
+    grad.addColorStop(1, 'rgba(1, 14, 22, 0)');
+    g.fillStyle = grad;
+    g.fillRect(rx, ry, rw, rh);
+  }
+  return c;
+}
+
+function createRenderer(canvas) {
+  const ctx = canvas.getContext('2d', { alpha: false });
+  let dpr = 1, cw = 1, ch = 1; // CSS size
+  let backdrop = null, bdW = 0, bdH = 0;
+  let vignette = null;
+  let lastNow = 0, waterT = 0, creatureT = 0, lastTick = -1;
+  const caustic = causticTile(256);
+  let causticPat = null;
+  const lightSprite = glowSprite(128, [[0, 'rgba(255, 214, 140, 1)'], [0.3, 'rgba(255, 178, 96, 0.62)'], [0.65, 'rgba(236, 140, 80, 0.16)'], [1, 'rgba(236, 140, 80, 0)']]);
+  const glint = glowSprite(32, [[0, 'rgba(255, 252, 210, 1)'], [0.2, 'rgba(226, 238, 128, 0.95)'], [0.5, 'rgba(150, 206, 84, 0.32)'], [1, 'rgba(120, 190, 70, 0)']]);
+  const snow = new Float32Array(SNOW_COUNT * 4); // x, y, size, alpha-ish depth
+  let snowW = 0, snowH = 0;
+  const dash = [4, 6];
+  const ghost = { x: 0, y: 0, r: 0, until: 0 };
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(1, canvas.clientWidth), h = Math.max(1, canvas.clientHeight);
+    if (w === cw && h === ch && canvas.width === Math.round(w * dpr)) return false;
+    cw = w; ch = h;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    const v = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.hypot(w, h) * 0.6);
+    v.addColorStop(0, 'rgba(0, 8, 14, 0)');
+    v.addColorStop(1, 'rgba(0, 8, 14, 0.42)');
+    vignette = v;
+    return true;
+  }
+
+  function ensureWorldAssets(world) {
+    if (!backdrop || bdW !== world.width || bdH !== world.height) {
+      bdW = world.width; bdH = world.height;
+      backdrop = makeBackdrop(bdW, bdH);
+    }
+    if (!causticPat) causticPat = ctx.createPattern(caustic, 'repeat');
+    if (snowW !== world.width || snowH !== world.height) {
+      snowW = world.width; snowH = world.height;
+      const rand = lcg(99);
+      for (let i = 0; i < SNOW_COUNT; i++) {
+        snow[i * 4] = rand() * snowW;
+        snow[i * 4 + 1] = rand() * snowH;
+        snow[i * 4 + 2] = 0.6 + rand() * 1.6;
+        snow[i * 4 + 3] = rand();
+      }
+    }
+  }
+
+  function screenToWorld(view, sx, sy) {
+    return { x: sx / view.scale + view.ox, y: sy / view.scale + view.oy };
+  }
+
+  function fitView(world) {
+    resize();
+    const scale = Math.min(cw / world.width, ch / world.height) * 0.97;
+    return { scale, ox: world.width / 2 - cw / (2 * scale), oy: world.height / 2 - ch / (2 * scale) };
+  }
+
+  function drawCaustics(S, ex, ey, x0, y0, x1, y1, t) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = causticPat;
+    for (let layer = 0; layer < 2; layer++) {
+      const k = layer === 0 ? 3.4 : 2.3; // world units per texel
+      const offX = layer === 0 ? t * 7 : -t * 5 + 90;
+      const offY = layer === 0 ? t * 4 : t * 6.5 + 40;
+      ctx.globalAlpha = layer === 0 ? 0.06 : 0.045;
+      // the pattern is anchored to the transform origin, so shifting the origin scrolls it
+      ctx.setTransform(S * k, 0, 0, S * k, ex + offX * S, ey + offY * S);
+      ctx.fillRect((x0 - offX) / k, (y0 - offY) / k, (x1 - x0) / k, (y1 - y0) / k);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function draw(world, view, selectedId) {
+    resize();
+    ensureWorldAssets(world);
+    const now = performance.now();
+    const dt = lastNow ? Math.min(0.1, (now - lastNow) / 1000) : 0;
+    lastNow = now;
+    waterT += dt;
+    // creatures only animate while the simulation advances, so pause freezes them
+    if (world.tick !== lastTick) { creatureT += dt; lastTick = world.tick; }
+
+    const W = world.width, H = world.height;
+    const scale = view.scale, S = scale * dpr;
+    const ex = -view.ox * S, ey = -view.oy * S;
+    const px = 1 / scale;
+    // sprite resolution snapped to powers of two so zooming rarely re-renders them
+    const res = Math.min(32, Math.max(0.25, 2 ** Math.ceil(Math.log2(S))));
+    // visible world rect (with margin) for culling
+    const vx0 = view.ox - 30, vy0 = view.oy - 30;
+    const vx1 = view.ox + cw / scale + 30, vy1 = view.oy + ch / scale + 30;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#020d12';
+    ctx.fillRect(0, 0, cw, ch);
+
+    ctx.setTransform(S, 0, 0, S, ex, ey);
+    // rocky rim around the pool
+    ctx.fillStyle = '#0a1d22';
+    ctx.fillRect(-14, -14, W + 28, H + 28);
+    ctx.drawImage(backdrop, 0, 0, W, H);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.clip();
+
+    // sunlit patches: warm additive glows
+    ctx.globalCompositeOperation = 'lighter';
+    const lights = world.lights || [];
+    for (let i = 0; i < lights.length; i++) {
+      const lt = lights[i];
+      const rr = lt.r * 1.5 * (1 + 0.04 * Math.sin(waterT * 0.7 + i * 1.9));
+      ctx.globalAlpha = 0.26 + 0.05 * Math.sin(waterT * 0.5 + i);
+      ctx.drawImage(lightSprite, lt.x - rr, lt.y - rr, rr * 2, rr * 2);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+
+    const cx0 = Math.max(0, vx0), cy0 = Math.max(0, vy0), cx1 = Math.min(W, vx1), cy1 = Math.min(H, vy1);
+    if (cx1 > cx0 && cy1 > cy0) drawCaustics(S, ex, ey, cx0, cy0, cx1, cy1, waterT);
+    ctx.setTransform(S, 0, 0, S, ex, ey);
+
+    // algae glints
+    ctx.globalCompositeOperation = 'lighter';
+    const food = world.food;
+    const gs = Math.max(5.5, 4.5 * px), gh = gs / 2;
+    for (let i = 0; i < food.length; i++) {
+      const f = food[i];
+      if (f.x < vx0 || f.x > vx1 || f.y < vy0 || f.y > vy1) continue;
+      ctx.globalAlpha = 0.5 + 0.4 * Math.sin(waterT * 2.3 + f.x * 0.37 + f.y * 0.61);
+      ctx.drawImage(glint, f.x - gh, f.y - gh, gs, gs);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+
+    const creatures = world.creatures;
+    let sel = null;
+
+    // soft shadows on the floor, one path for all of them
+    ctx.fillStyle = SHADOW;
+    ctx.beginPath();
+    for (let i = 0; i < creatures.length; i++) {
+      const c = creatures[i];
+      if (c.x < vx0 || c.x > vx1 || c.y < vy0 || c.y > vy1) continue;
+      const L = lookFor(c.pheno);
+      if (L.r * scale < 1.8) continue;
+      const off = L.r * 0.45;
+      const sx = c.x + off, sy = c.y + off * 1.4;
+      ctx.moveTo(sx + Math.cos(c.angle) * L.rx, sy + Math.sin(c.angle) * L.rx);
+      ctx.ellipse(sx, sy, L.rx, L.ry, c.angle, 0, TAU);
+    }
+    ctx.fill();
+
+    for (let i = 0; i < creatures.length; i++) {
+      const c = creatures[i];
+      if (c.id === selectedId) sel = c;
+      if (c.x < vx0 || c.x > vx1 || c.y < vy0 || c.y > vy1) continue;
+      const p = c.pheno;
+      const L = lookFor(p);
+      const e = c.energy / p.maxEnergy;
+      const level = e > 0.4 ? 0 : e > 0.18 ? 1 : 2;
+      const onScreen = L.r * scale;
+      if (onScreen < 1.3) {
+        ctx.fillStyle = L.body[level];
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, Math.max(L.r, 1.2 * px), 0, TAU);
+        ctx.fill();
+        continue;
+      }
+      const out = c.outputs;
+      const thrust = out ? out[1] : 0.5, turn = out ? out[0] : 0;
+      const swing = Math.sin(c.phase + creatureT * 7.5) * (0.1 + 0.5 * thrust) - turn * 0.35;
+      const flap = Math.sin(c.phase * 1.7 + creatureT * 4.2);
+      const cs = Math.cos(c.angle) * S, sn = Math.sin(c.angle) * S;
+      ctx.setTransform(cs, sn, -sn, cs, c.x * S + ex, c.y * S + ey);
+      if (onScreen > SPRITE_MAX_PX) {
+        drawLocal(ctx, L, swing, flap, level, 2, px);
+      } else {
+        if (onScreen >= 1.8) drawTail(ctx, L, swing);
+        const sp = spriteFor(L, level, res);
+        ctx.drawImage(sp.c, sp.x, sp.y, sp.w, sp.h);
+      }
+    }
+    ctx.setTransform(S, 0, 0, S, ex, ey);
+
+    // marine snow drifting above everything, for depth
+    const drift = dt * 4;
+    ctx.fillStyle = 'rgba(214, 238, 232, 0.16)';
+    ctx.beginPath();
+    for (let i = 0; i < SNOW_COUNT; i++) {
+      const o = i * 4;
+      let x = snow[o] + drift * (0.6 + snow[o + 3]) + Math.sin(waterT * 0.3 + i) * 0.05;
+      let y = snow[o + 1] + drift * 0.45 * (0.5 + snow[o + 3]);
+      if (x > W) x -= W;
+      if (y > H) y -= H;
+      snow[o] = x; snow[o + 1] = y;
+      if (x < vx0 || x > vx1 || y < vy0 || y > vy1) continue;
+      const s = Math.max(snow[o + 2], 0.9 * px);
+      ctx.rect(x, y, s, s);
+    }
+    ctx.fill();
+    ctx.restore(); // pool clip
+
+    ctx.setTransform(S, 0, 0, S, ex, ey);
+    if (sel) {
+      const L = lookFor(sel.pheno);
+      ghost.x = sel.x; ghost.y = sel.y; ghost.r = L.rx; ghost.until = now + 2200;
+      const pulse = 1 + 0.06 * Math.sin(waterT * 3);
+      ctx.lineWidth = 1.5 * px;
+      ctx.strokeStyle = 'rgba(255, 238, 196, 0.9)';
+      ctx.beginPath();
+      ctx.arc(sel.x, sel.y, (L.front + 5 * px + 3) * pulse, 0, TAU);
+      ctx.stroke();
+      dash[0] = 4 * px; dash[1] = 6 * px;
+      ctx.setLineDash(dash);
+      ctx.lineWidth = px;
+      ctx.strokeStyle = 'rgba(170, 236, 224, 0.32)';
+      ctx.beginPath();
+      ctx.arc(sel.x, sel.y, sel.pheno.senseRange, 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash(NO_DASH);
+    } else if (selectedId != null && now < ghost.until) {
+      // selected creature just died: let its ring fade where it was
+      const a = (ghost.until - now) / 2200;
+      ctx.lineWidth = 1.5 * px;
+      ctx.strokeStyle = `rgba(255, 170, 150, ${(0.8 * a).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(ghost.x, ghost.y, ghost.r + 8 * px + (1 - a) * 10, 0, TAU);
+      ctx.stroke();
+    }
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, cw, ch);
+  }
+
+  resize();
+  return {
+    draw,
+    screenToWorld,
+    fitView,
+    get width() { return cw; },
+    get height() { return ch; },
+  };
+}
+
+return { drawPortrait, createRenderer };
+})();
+
+const __m8 = (() => {
+const { drawPortrait } = __m7;
+const { express } = __m3;
+const { INPUTS, OUTPUTS, HIDDEN } = __m4;
+const { DAY } = __m1;
+// Side panels and controls: plain DOM, updated a few times a second by main.js.
+
+
+
+
+const INPUT_LABELS = {
+  foodAngle: 'food dir', foodDist: 'food near', preyAngle: 'prey dir', preyDist: 'prey near',
+  threatAngle: 'threat dir', threatDist: 'threat near', kinAngle: 'kin dir', kinDist: 'kin near',
+  energy: 'energy', wall: 'wall', clock: 'clock', bias: 'bias',
+};
+const MAX_JOURNAL = 160;
+const MAX_EXTINCT_SHOWN = 8;
+const ALPHA_STEPS = 10;
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function setText(node, text) {
+  if (node.textContent !== text) node.textContent = text;
+}
+
+// Size a canvas's backing store for the device pixel ratio; returns the CSS size.
+function fitCanvas(canvas, w, h) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const bw = Math.max(1, Math.round(w * dpr)), bh = Math.max(1, Math.round(h * dpr));
+  if (canvas.width !== bw || canvas.height !== bh) { canvas.width = bw; canvas.height = bh; }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return ctx;
+}
+
+const fmtInt = (n) => Math.round(n).toLocaleString('en-US');
+const dayNumber = (tick) => Math.floor(tick / DAY) + 1;
+
+function dietTag(diet) {
+  if (diet > 0.5) return ['predator', 'predator'];
+  if (diet > 0.35) return ['omnivore', 'omnivore'];
+  return ['grazer', ''];
+}
+
+function latinName(sp) {
+  return sp ? `${sp.name.genus} ${sp.name.epithet}` : '';
+}
+
+function createUI(handlers) {
+  const $ = (id) => document.getElementById(id);
+  const root = document.body;
+  const stat = { day: $('stat-day'), tick: $('stat-tick'), pop: $('stat-pop'), species: $('stat-species'), seed: $('stat-seed'), eff: $('stat-eff') };
+  const btnPlay = $('btn-play'), btnFollow = $('btn-follow');
+  const speedBtns = Array.from($('speed').querySelectorAll('button'));
+
+  btnPlay.addEventListener('click', () => handlers.onPlay());
+  btnFollow.addEventListener('click', () => handlers.onFollow());
+  $('btn-seed').addEventListener('click', () => handlers.onSeed());
+  $('btn-fit').addEventListener('click', () => handlers.onFit());
+  for (const b of speedBtns) b.addEventListener('click', () => handlers.onSpeed(Number(b.dataset.speed)));
+
+  // ---------- inspector ----------
+  const insp = $('inspector');
+  const empty = el('p', 'empty');
+  empty.append(el('b', null, 'Nothing selected'), 'Click a creature in the pool to see who it is and what it is thinking.');
+  const body = el('div', 'ins-body');
+  const head = el('div', 'ins-head');
+  const portrait = el('canvas');
+  const names = el('div', 'ins-names');
+  const nCommon = el('div', 'common'), nLatin = el('div', 'latin'), nMeta = el('div', 'meta');
+  names.append(nCommon, nLatin, nMeta);
+  head.append(portrait, names);
+  const energy = el('div', 'energy');
+  const eLbl = el('div', 'lbl'), eVal = el('b');
+  eLbl.append(el('span', null, 'Energy'), eVal);
+  const eTrack = el('div', 'bar-track'), eFill = el('div', 'bar-fill');
+  eTrack.append(eFill);
+  energy.append(eLbl, eTrack);
+  const grid = el('dl', 'grid');
+  const cells = {};
+  for (const [k, label] of [['age', 'Age'], ['gen', 'Generation'], ['children', 'Children'], ['kills', 'Kills'], ['size', 'Size'], ['speed', 'Top speed']]) {
+    const d = el('div');
+    d.append(el('dt', null, label), (cells[k] = el('dd')));
+    grid.append(d);
+  }
+  const brainWrap = el('div', 'brain-wrap');
+  const bLbl = el('div', 'lbl');
+  bLbl.innerHTML = '<span>Brain</span><span><i class="k-pos">excite</i> &middot; <i class="k-neg">inhibit</i></span>';
+  const brainCanvas = el('canvas', 'brain');
+  brainWrap.append(bLbl, brainCanvas);
+  body.append(head, energy, grid, brainWrap);
+  const note = el('div', 'deceased-note');
+  const noteText = el('div');
+  const noteRow = el('div', 'row');
+  const btnKin = el('button', 'btn', 'Select a kin');
+  btnKin.type = 'button';
+  const btnDismiss = el('button', 'btn', 'Dismiss');
+  btnDismiss.type = 'button';
+  btnKin.addEventListener('click', () => handlers.onSelectKin());
+  btnDismiss.addEventListener('click', () => handlers.onDeselect());
+  noteRow.append(btnKin, btnDismiss);
+  note.append(noteText, noteRow);
+  const insTitle = el('h2', null, 'Inspector');
+  const deadTag = el('span', 'tag dead', 'deceased');
+  insp.append(insTitle, empty);
+
+  let shownCreature = null;
+  let shownDead = false;
+  let brainLines = null; // offscreen layer with this creature's (fixed) weights
+  let brainW = 0;
+  const hidden = new Float64Array(HIDDEN);
+
+  const POS = [242, 184, 103], NEG = [111, 205, 232];
+  const lineStyles = [[], []];
+  for (let s = 0; s < 2; s++) {
+    const c = s ? NEG : POS;
+    for (let i = 0; i <= ALPHA_STEPS; i++) lineStyles[s].push(`rgba(${c[0]}, ${c[1]}, ${c[2]}, ${((i / ALPHA_STEPS) * 0.85).toFixed(3)})`);
+  }
+
+  function brainLayout(w, h) {
+    const NI = INPUTS.length, NO = OUTPUTS.length;
+    const top = 9, span = h - 18;
+    const col = (n, i) => top + (n === 1 ? span / 2 : (span * i) / (n - 1));
+    const hiddenPad = span * 0.12;
+    return {
+      ix: 70, hx: Math.round(w * 0.55), ox: w - 62,
+      iy: (i) => col(NI, i),
+      hy: (j) => top + hiddenPad + ((span - hiddenPad * 2) * j) / Math.max(1, HIDDEN - 1),
+      oy: (o) => top + span * 0.2 + (span * 0.6 * o) / Math.max(1, NO - 1),
+    };
+  }
+
+  function buildBrainLines(c, w, h) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const off = brainLines || document.createElement('canvas');
+    off.width = Math.round(w * dpr); off.height = Math.round(h * dpr);
+    const g = off.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    const Ly = brainLayout(w, h);
+    const wts = c.genome.weights;
+    const NI = INPUTS.length, NO = OUTPUTS.length, OUT = HIDDEN * NI;
+    if (wts.length < OUT + NO * (HIDDEN + 1)) return off;
+    // bucket lines by colour so each bucket is one stroke
+    for (let s = 0; s < 2; s++) {
+      for (let b = 1; b <= ALPHA_STEPS; b++) {
+        g.beginPath();
+        let any = false;
+        for (let j = 0; j < HIDDEN; j++) {
+          for (let i = 0; i < NI; i++) {
+            const v = wts[j * NI + i];
+            if ((v < 0 ? 1 : 0) !== s || Math.min(ALPHA_STEPS, Math.round((Math.abs(v) / 3) * ALPHA_STEPS)) !== b) continue;
+            g.moveTo(Ly.ix + 5, Ly.iy(i)); g.lineTo(Ly.hx - 5, Ly.hy(j)); any = true;
+          }
+        }
+        for (let o = 0; o < NO; o++) {
+          for (let j = 0; j < HIDDEN; j++) {
+            const v = wts[OUT + o * (HIDDEN + 1) + j];
+            if ((v < 0 ? 1 : 0) !== s || Math.min(ALPHA_STEPS, Math.round((Math.abs(v) / 3) * ALPHA_STEPS)) !== b) continue;
+            g.moveTo(Ly.hx + 5, Ly.hy(j)); g.lineTo(Ly.ox - 6, Ly.oy(o)); any = true;
+          }
+        }
+        if (!any) continue;
+        g.strokeStyle = lineStyles[s][b];
+        g.lineWidth = 0.6 + b * 0.16;
+        g.stroke();
+      }
+    }
+    return off;
+  }
+
+  function nodeFill(a) {
+    const m = Math.min(1, Math.abs(a));
+    const c = a >= 0 ? POS : NEG;
+    return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${(0.12 + 0.88 * m).toFixed(3)})`;
+  }
+
+  function drawBrain(c) {
+    const w = brainCanvas.clientWidth || 320, h = brainCanvas.clientHeight || 220;
+    const ctx = fitCanvas(brainCanvas, w, h);
+    if (!brainLines || brainW !== w || shownCreature !== c) {
+      brainLines = buildBrainLines(c, w, h);
+      brainW = w;
+    }
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(brainLines, 0, 0, w, h);
+    const Ly = brainLayout(w, h);
+    const inp = c.inputs || [];
+    const wts = c.genome.weights;
+    const NI = INPUTS.length;
+    for (let j = 0; j < HIDDEN; j++) {
+      let s = 0;
+      for (let i = 0; i < NI; i++) s += wts[j * NI + i] * (inp[i] || 0);
+      hidden[j] = Math.tanh(s);
+    }
+    ctx.font = '10px ui-monospace, Menlo, Consolas, monospace';
+    ctx.textBaseline = 'middle';
+    const ring = 'rgba(200, 235, 228, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.textAlign = 'right';
+    for (let i = 0; i < NI; i++) {
+      const y = Ly.iy(i), a = inp[i] || 0;
+      ctx.fillStyle = 'rgba(160, 200, 196, 0.75)';
+      ctx.fillText(INPUT_LABELS[INPUTS[i]] || INPUTS[i], Ly.ix - 9, y);
+      ctx.beginPath(); ctx.arc(Ly.ix, y, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#0a2229'; ctx.fill();
+      ctx.fillStyle = nodeFill(a); ctx.fill();
+      ctx.strokeStyle = ring; ctx.stroke();
+    }
+    for (let j = 0; j < HIDDEN; j++) {
+      const y = Ly.hy(j);
+      ctx.beginPath(); ctx.arc(Ly.hx, y, 5.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#0a2229'; ctx.fill();
+      ctx.fillStyle = nodeFill(hidden[j]); ctx.fill();
+      ctx.strokeStyle = ring; ctx.stroke();
+    }
+    ctx.textAlign = 'left';
+    const out = c.outputs || [];
+    for (let o = 0; o < OUTPUTS.length; o++) {
+      const y = Ly.oy(o), a = out[o] || 0;
+      ctx.beginPath(); ctx.arc(Ly.ox, y, 7, 0, Math.PI * 2);
+      ctx.fillStyle = '#0a2229'; ctx.fill();
+      ctx.fillStyle = nodeFill(a); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 230, 190, 0.5)'; ctx.stroke();
+      ctx.fillStyle = 'rgba(220, 239, 234, 0.9)';
+      ctx.fillText(OUTPUTS[o], Ly.ox + 12, y - 6);
+      ctx.fillStyle = 'rgba(160, 200, 196, 0.7)';
+      ctx.fillText((a >= 0 && o === 0 ? '+' : '') + a.toFixed(2), Ly.ox + 12, y + 6);
+    }
+  }
+
+  function showCreature(world, c, dead, death, kinCount) {
+    if (!c) {
+      if (shownCreature) { insp.replaceChildren(insTitle, empty); insp.classList.remove('deceased'); deadTag.remove(); }
+      shownCreature = null;
+      return;
+    }
+    const sp = world.species.get(c.speciesId);
+    if (shownCreature !== c) {
+      insp.replaceChildren(insTitle, body);
+      const pctx = fitCanvas(portrait, 72, 52);
+      pctx.clearRect(0, 0, 72, 52);
+      drawPortrait(pctx, c.pheno, 36, 26, 60);
+      setText(nCommon, sp ? sp.name.common : 'Unknown form');
+      setText(nLatin, latinName(sp));
+      const [tagText, tagCls] = dietTag(c.pheno.diet);
+      nMeta.replaceChildren(el('span', `tag ${tagCls}`, tagText), `species ${sp ? sp.id : '?'} · #${c.id}`);
+      shownDead = null;
+    }
+    if (shownDead !== dead) {
+      insp.classList.toggle('deceased', dead);
+      if (dead) { body.after(note); insTitle.append(deadTag); } else { note.remove(); deadTag.remove(); }
+      shownDead = dead;
+    }
+    if (dead) {
+      const cause = (death && death.cause) || c.causeOfDeath || 'unknown causes';
+      let text = cause === 'eaten' ? 'Eaten' : cause === 'starvation' ? 'Starved' : cause === 'old age' ? 'Died of old age' : `Died (${cause})`;
+      if (cause === 'eaten' && death && death.killerSpecies != null) {
+        const ks = world.species.get(death.killerSpecies);
+        if (ks) text += ` by ${/^[AEIOU]/i.test(ks.name.common) ? 'an' : 'a'} ${ks.name.common}`;
+      }
+      text += ` at ${(c.age / DAY).toFixed(1)} days old.`;
+      text += kinCount > 0 ? ` ${kinCount} of its kind still swim${kinCount === 1 ? 's' : ''}.` : ' None of its kind remain.';
+      setText(noteText, text);
+      btnKin.hidden = kinCount === 0;
+    }
+    const e = Math.max(0, c.energy / c.pheno.maxEnergy);
+    setText(eVal, `${Math.round(e * 100)}%`);
+    eFill.style.width = `${Math.min(100, e * 100).toFixed(1)}%`;
+    eFill.classList.toggle('low', e < 0.25);
+    setText(cells.age, `${(c.age / DAY).toFixed(1)} d`);
+    setText(cells.gen, String(c.generation));
+    setText(cells.children, String(c.children));
+    setText(cells.kills, String(c.kills));
+    setText(cells.size, c.pheno.radius.toFixed(1));
+    setText(cells.speed, c.pheno.maxSpeed.toFixed(2));
+    if (!dead || shownCreature !== c) drawBrain(c);
+    shownCreature = c;
+  }
+
+  // ---------- field guide ----------
+  const guide = $('guide'), guideCount = $('guide-count');
+  const rows = new Map(); // species id -> row refs
+  const counts = new Map();
+  let order = [];
+  const more = el('li', 'more');
+
+  function makeRow(sp) {
+    const li = el('li');
+    li.tabIndex = 0;
+    const cv = el('canvas');
+    const nm = el('div', 'nm');
+    const common = el('div', 'common'), latin = el('div', 'latin');
+    nm.append(common, latin);
+    const pop = el('div', 'pop'), num = el('span'), sub = el('small');
+    pop.append(num, sub);
+    li.append(cv, nm, pop);
+    const pctx = fitCanvas(cv, 54, 36);
+    drawPortrait(pctx, express(sp.representative), 27, 18, 46);
+    common.textContent = sp.name.common;
+    latin.textContent = latinName(sp);
+    const pick = () => { if (!li.classList.contains('extinct')) handlers.onSelectSpecies(sp.id); };
+    li.addEventListener('click', pick);
+    li.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(); } });
+    return { li, num, sub, n: -1, extinct: null, sub0: '' };
+  }
+
+  function updateGuide(world, selectedSpecies) {
+    const all = world.species.all();
+    const living = [], extinct = [];
+    for (const sp of all) {
+      const n = counts.get(sp.id) || 0;
+      if (n > 0 || sp.extinctTick == null) living.push(sp); else extinct.push(sp);
+    }
+    living.sort((a, b) => (counts.get(b.id) || 0) - (counts.get(a.id) || 0) || a.id - b.id);
+    extinct.sort((a, b) => b.extinctTick - a.extinctTick);
+    const shown = living.concat(extinct.slice(0, MAX_EXTINCT_SHOWN));
+    setText(guideCount, `${living.length} living · ${extinct.length} extinct`);
+
+    let same = shown.length === order.length;
+    for (let i = 0; same && i < shown.length; i++) same = shown[i].id === order[i];
+    if (!same) {
+      const keep = new Set();
+      const frag = document.createDocumentFragment();
+      for (const sp of shown) {
+        let r = rows.get(sp.id);
+        if (!r) { r = makeRow(sp); rows.set(sp.id, r); }
+        keep.add(sp.id);
+        frag.append(r.li);
+      }
+      for (const [id, r] of rows) if (!keep.has(id)) { r.li.remove(); rows.delete(id); }
+      guide.replaceChildren(frag);
+      order = shown.map((s) => s.id);
+    }
+    const hidden = extinct.length - MAX_EXTINCT_SHOWN;
+    if (hidden > 0) { setText(more, `and ${hidden} older extinct species`); guide.append(more); } else more.remove();
+
+    for (const sp of shown) {
+      const r = rows.get(sp.id);
+      const n = counts.get(sp.id) || 0;
+      const isExtinct = n === 0 && sp.extinctTick != null;
+      if (r.n !== n) { r.num.textContent = isExtinct ? '†' : String(n); r.n = n; }
+      const sub = isExtinct ? `extinct day ${dayNumber(sp.extinctTick)}` : `peak ${Math.max(sp.peakPopulation, n)}`;
+      if (r.sub0 !== sub) { r.sub.textContent = sub; r.sub0 = sub; }
+      if (r.extinct !== isExtinct) { r.li.classList.toggle('extinct', isExtinct); r.extinct = isExtinct; }
+      r.li.classList.toggle('current', sp.id === selectedSpecies);
+    }
+  }
+
+  // ---------- population chart ----------
+  const chart = $('chart');
+  const chartStart = $('chart-start'), chartMax = $('chart-max'), chartEnd = $('chart-end');
+  const hueStyle = new Map();
+  let chartKey = '';
+  let baseA = new Float32Array(0), baseB = new Float32Array(0);
+
+  function speciesFill(sp) {
+    let s = hueStyle.get(sp.id);
+    if (!s) { s = `hsla(${sp.hue.toFixed(0)}, 58%, 56%, 0.88)`; hueStyle.set(sp.id, s); }
+    return s;
+  }
+
+  function drawChart(world) {
+    const hist = world.history || [];
+    const w = chart.clientWidth || 300, h = chart.clientHeight || 120;
+    const last = hist.length ? hist[hist.length - 1].tick : -1;
+    const key = `${hist.length}:${last}:${w}x${h}`;
+    if (key === chartKey) return;
+    chartKey = key;
+    const ctx = fitCanvas(chart, w, h);
+    ctx.clearRect(0, 0, w, h);
+    if (hist.length < 2) {
+      setText(chartStart, ''); setText(chartEnd, ''); setText(chartMax, 'gathering data…');
+      return;
+    }
+    const cols = Math.max(2, Math.min(hist.length, Math.floor(w / 1.5)));
+    if (baseA.length < cols) { baseA = new Float32Array(cols); baseB = new Float32Array(cols); }
+    const idx = (k) => Math.round((k * (hist.length - 1)) / (cols - 1));
+    let peak = 1;
+    for (let k = 0; k < cols; k++) peak = Math.max(peak, hist[idx(k)].population);
+    const yMax = peak * 1.08;
+    const X = (k) => (k * w) / (cols - 1);
+    const Y = (v) => h - (v / yMax) * (h - 2);
+
+    ctx.strokeStyle = 'rgba(160, 230, 220, 0.07)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let g = 1; g <= 3; g++) { const y = Math.round((h * g) / 4) + 0.5; ctx.moveTo(0, y); ctx.lineTo(w, y); }
+    ctx.stroke();
+
+    let lower = baseA, upper = baseB;
+    lower.fill(0, 0, cols);
+    // stack in founding order so colours stay put as new species arrive on top
+    for (const sp of world.species.all()) {
+      const key = String(sp.id);
+      let present = false;
+      for (let k = 0; k < cols; k++) {
+        const v = hist[idx(k)].bySpecies[key] || 0;
+        upper[k] = lower[k] + v;
+        if (v) present = true;
+      }
+      if (!present) continue;
+      ctx.beginPath();
+      ctx.moveTo(X(0), Y(upper[0]));
+      for (let k = 1; k < cols; k++) ctx.lineTo(X(k), Y(upper[k]));
+      for (let k = cols - 1; k >= 0; k--) ctx.lineTo(X(k), Y(lower[k]));
+      ctx.closePath();
+      ctx.fillStyle = speciesFill(sp);
+      ctx.fill();
+      const t = lower; lower = upper; upper = t;
+    }
+    // outline of the total
+    ctx.beginPath();
+    ctx.moveTo(X(0), Y(hist[idx(0)].population));
+    for (let k = 1; k < cols; k++) ctx.lineTo(X(k), Y(hist[idx(k)].population));
+    ctx.strokeStyle = 'rgba(240, 250, 246, 0.55)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    setText(chartStart, `day ${dayNumber(hist[0].tick)}`);
+    setText(chartMax, `peak ${peak}`);
+    setText(chartEnd, `day ${dayNumber(last)}`);
+  }
+
+  // ---------- journal ----------
+  const journalEl = $('journal');
+  const pending = [];
+  const journalEmpty = el('li', 'empty', 'The naturalist is watching. Notable events will be written here.');
+
+  function flushJournal() {
+    if (!pending.length) return;
+    journalEmpty.remove();
+    const frag = document.createDocumentFragment();
+    // newest first
+    for (let i = pending.length - 1; i >= Math.max(0, pending.length - MAX_JOURNAL); i--) {
+      const { text, type } = pending[i];
+      const li = el('li', `fresh t-${type}`);
+      const m = /^(Day [\d,]+\.)\s*([\s\S]*)$/.exec(text);
+      if (m) li.append(el('span', 'day', m[1]), ' ', m[2]); else li.textContent = text;
+      frag.append(li);
+    }
+    pending.length = 0;
+    journalEl.prepend(frag);
+    while (journalEl.childElementCount > MAX_JOURNAL) journalEl.lastElementChild.remove();
+  }
+
+  // ---------- public ----------
+  function reset(world) {
+    shownCreature = null; brainLines = null;
+    insp.replaceChildren(insTitle, empty);
+    insp.classList.remove('deceased');
+    deadTag.remove();
+    rows.clear(); order = []; guide.replaceChildren();
+    hueStyle.clear(); chartKey = '';
+    pending.length = 0;
+    journalEl.replaceChildren(journalEmpty);
+    setText(stat.seed, String(world.seed));
+  }
+
+  function setControls(state) {
+    root.classList.toggle('paused', state.paused);
+    btnPlay.title = state.paused ? 'Play (Space)' : 'Pause (Space)';
+    btnPlay.setAttribute('aria-label', state.paused ? 'Play' : 'Pause');
+    for (const b of speedBtns) b.classList.toggle('on', Number(b.dataset.speed) === state.speed);
+    btnFollow.setAttribute('aria-pressed', String(state.follow));
+  }
+
+  function update(world, state) {
+    counts.clear();
+    const cs = world.creatures;
+    for (let i = 0; i < cs.length; i++) counts.set(cs[i].speciesId, (counts.get(cs[i].speciesId) || 0) + 1);
+    setText(stat.day, String(dayNumber(world.tick)));
+    setText(stat.tick, fmtInt(world.tick));
+    setText(stat.pop, String(cs.length));
+    setText(stat.species, String(counts.size));
+    const eff = state.paused ? '' : state.effSpeed < state.speed * 0.85 ? `≈${Math.max(1, Math.round(state.effSpeed))}×` : '';
+    setText(stat.eff, eff);
+    const sel = state.selected;
+    const dead = !!sel && (state.selectedDead || !sel.alive);
+    showCreature(world, sel, dead, state.death, sel ? counts.get(sel.speciesId) || 0 : 0);
+    updateGuide(world, sel ? sel.speciesId : null);
+    drawChart(world);
+    flushJournal();
+  }
+
+  return {
+    reset,
+    update,
+    setControls,
+    journal(text, event) { pending.push({ text, type: event.type }); if (pending.length > MAX_JOURNAL * 2) pending.splice(0, pending.length - MAX_JOURNAL); },
+  };
+}
+
+return { createUI };
+})();
+
+const __m0 = (() => {
+const { createWorld, step, findCreatureAt } = __m1;
+const { narrate } = __m6;
+const { createRenderer } = __m7;
+const { createUI } = __m8;
+// Browser entry: builds the world from #seed=N, runs the loop, handles input.
+
+
+
+
+const TICKS_PER_SEC = 60;
+const STEP_BUDGET_MS = 12;   // cap on simulation time per frame so 64x stays responsive
+const UI_INTERVAL_MS = 150;  // panels refresh ~6-7 times a second; the canvas every frame
+const MAX_SCALE = 14;
+const SPEEDS = [1, 4, 16, 64];
+
+const canvas = document.getElementById('pool');
+const hint = document.getElementById('hint');
+const renderer = createRenderer(canvas);
+
+const state = {
+  paused: false,
+  speed: 1,
+  follow: false,
+  selected: null,       // Creature object (kept after it dies so the inspector can show it)
+  selectedDead: false,
+  death: null,          // { cause, killerSpecies } for the selected creature, from events
+  effSpeed: 1,
+  wasFollowing: false,  // so picking a kin after a death resumes following
+};
+
+let world = null;
+let view = { scale: 1, ox: 0, oy: 0 };
+let minScale = 0.1;
+let zoomTarget = 0;    // follow eases in to this scale; manual zoom cancels it
+let fitted = true;      // view still shows the whole pool; refit on resize
+let lastSeq = 0;
+const fresh = [];
+let narrateFailed = false;
+
+const handlers = {
+  onPlay: () => setPaused(!state.paused),
+  onSpeed: (s) => { state.speed = s; ui.setControls(state); },
+  onFollow: () => setFollow(!state.follow),
+  onSeed: () => newSeed(),
+  onFit: () => fitAll(),
+  onSelectSpecies: (id) => {
+    let best = null;
+    for (const c of world.creatures) {
+      if (c.speciesId !== id) continue;
+      if (!best || c.pheno.radius > best.pheno.radius || (c.pheno.radius === best.pheno.radius && c.energy > best.energy)) best = c;
+    }
+    if (best) { select(best); setFollow(true); zoomTarget = Math.max(view.scale, (minScale / 0.6) * 2.5); }
+  },
+  onSelectKin: () => {
+    const dead = state.selected;
+    if (!dead) return;
+    let best = null, bd = Infinity;
+    for (const c of world.creatures) {
+      if (c.speciesId !== dead.speciesId || c === dead) continue;
+      const d = (c.x - dead.x) ** 2 + (c.y - dead.y) ** 2;
+      if (d < bd) { bd = d; best = c; }
+    }
+    if (best) { const refollow = state.wasFollowing; select(best); if (refollow) setFollow(true); }
+  },
+  onDeselect: () => select(null),
+};
+const ui = createUI(handlers);
+
+function readSeed() {
+  const m = /seed=(\d+)/.exec(location.hash);
+  return m ? Number(m[1]) >>> 0 : null;
+}
+
+function randomSeed() {
+  const a = new Uint32Array(1);
+  crypto.getRandomValues(a);
+  return (a[0] % 999999) + 1;
+}
+
+function start(seed) {
+  world = createWorld({ seed });
+  lastSeq = 0;
+  state.selected = null; state.selectedDead = false; state.death = null; state.follow = false;
+  ui.reset(world);
+  fitAll();
+  drainEvents();
+  // ?warm=N fast-forwards N ticks on load (handy for checking a mature pool)
+  const warm = Math.min(200000, Number(new URLSearchParams(location.search).get('warm')) || 0);
+  for (let i = 0; i < warm; i++) { step(world); drainEvents(); }
+  ui.setControls(state);
+  ui.update(world, state);
+}
+
+function newSeed() {
+  location.hash = `seed=${randomSeed()}`; // hashchange restarts the world
+}
+
+window.addEventListener('hashchange', () => {
+  const s = readSeed();
+  if (s != null && (!world || s !== world.seed)) start(s);
+});
+
+function fitAll() {
+  view = renderer.fitView(world);
+  minScale = view.scale * 0.6;
+  fitted = true;
+}
+
+function setPaused(p) { state.paused = p; ui.setControls(state); }
+function setFollow(f) { state.follow = f && !!state.selected && !state.selectedDead; ui.setControls(state); }
+
+function select(c) {
+  state.selected = c;
+  state.selectedDead = false;
+  state.death = null;
+  if (!c) state.follow = false;
+  ui.setControls(state);
+  ui.update(world, state);
+}
+
+// The world keeps a ring buffer of recent events; pick up everything newer than we've seen.
+function drainEvents() {
+  const seq = world.eventSeq || 0;
+  if (seq === lastSeq) return;
+  const evs = world.events;
+  fresh.length = 0;
+  for (let i = 0; i < evs.length; i++) if (evs[i].seq > lastSeq) fresh.push(evs[i]);
+  if (fresh.length > 1) fresh.sort((a, b) => a.seq - b.seq);
+  lastSeq = seq;
+  const sel = state.selected;
+  for (let i = 0; i < fresh.length; i++) {
+    const e = fresh[i];
+    if (sel && !state.selectedDead) {
+      if (e.type === 'predation' && e.preyId === sel.id) state.death = { cause: 'eaten', killerSpecies: e.predatorSpecies };
+      else if (e.type === 'death' && e.creatureId === sel.id) state.death = { cause: e.cause, killerSpecies: state.death ? state.death.killerSpecies : null };
+    }
+    let text = null;
+    try {
+      text = narrate(e, world);
+    } catch (err) {
+      if (!narrateFailed) { console.error('narrate failed', err); narrateFailed = true; }
+    }
+    if (text) ui.journal(text, e);
+  }
+}
+
+function clampView() {
+  // keep the view centre over the pool so it can't be lost off-screen
+  const w = renderer.width / view.scale, h = renderer.height / view.scale;
+  const cx = Math.min(world.width, Math.max(0, view.ox + w / 2));
+  const cy = Math.min(world.height, Math.max(0, view.oy + h / 2));
+  view.ox = cx - w / 2;
+  view.oy = cy - h / 2;
+}
+
+function zoomAt(sx, sy, factor) {
+  zoomTarget = 0;
+  const s = Math.min(MAX_SCALE, Math.max(minScale, view.scale * factor));
+  const p = renderer.screenToWorld(view, sx, sy);
+  view.scale = s;
+  view.ox = p.x - sx / s;
+  view.oy = p.y - sy / s;
+  fitted = false;
+  clampView();
+}
+
+// ---------- main loop ----------
+
+let acc = 0, lastFrame = 0, lastUi = 0;
+let effTicks = 0, effStart = 0;
+
+function frame(now) {
+  const dt = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 1 / 60;
+  lastFrame = now;
+
+  if (!state.paused) {
+    acc += dt * TICKS_PER_SEC * state.speed;
+    const t0 = performance.now();
+    while (acc >= 1) {
+      step(world);
+      drainEvents();
+      acc -= 1;
+      effTicks++;
+      if (performance.now() - t0 > STEP_BUDGET_MS) { acc = Math.min(acc, 1); break; }
+    }
+  }
+  if (now - effStart > 1000) {
+    state.effSpeed = (effTicks / ((now - effStart) / 1000)) / TICKS_PER_SEC;
+    effTicks = 0; effStart = now;
+  }
+
+  const sel = state.selected;
+  if (sel && !state.selectedDead && (!sel.alive || state.death)) {
+    state.selectedDead = true;
+    state.wasFollowing = state.follow;
+    if (state.follow) { state.follow = false; ui.setControls(state); }
+  }
+  if (state.follow && sel && !state.selectedDead) {
+    const k = Math.min(1, dt * 5);
+    if (zoomTarget > view.scale * 1.001) {
+      const cx = view.ox + renderer.width / (2 * view.scale), cy = view.oy + renderer.height / (2 * view.scale);
+      view.scale += (zoomTarget - view.scale) * k;
+      view.ox = cx - renderer.width / (2 * view.scale);
+      view.oy = cy - renderer.height / (2 * view.scale);
+    } else zoomTarget = 0;
+    const tx = sel.x - renderer.width / (2 * view.scale), ty = sel.y - renderer.height / (2 * view.scale);
+    view.ox += (tx - view.ox) * k;
+    view.oy += (ty - view.oy) * k;
+    fitted = false;
+  }
+
+  renderer.draw(world, view, sel ? sel.id : null);
+
+  if (now - lastUi > UI_INTERVAL_MS) {
+    // creatures are removed from the list when they die; catch it even if `alive` wasn't cleared
+    if (sel && !state.selectedDead && !world.creatures.includes(sel)) state.selectedDead = true;
+    ui.update(world, state);
+    lastUi = now;
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------- input ----------
+
+const pointers = new Map();
+let drag = null;   // { x, y, moved }
+let pinch = null;  // { dist, x, y }
+
+function local(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+function dismissHint() { hint.classList.add('gone'); }
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  canvas.setPointerCapture(e.pointerId);
+  const p = local(e);
+  pointers.set(e.pointerId, p);
+  if (pointers.size === 1) {
+    drag = { x: p.x, y: p.y, moved: false };
+  } else if (pointers.size === 2) {
+    const [a, b] = pointers.values();
+    pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    if (drag) drag.moved = true; // two fingers never count as a click
+  }
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  const p = local(e);
+  if (!pointers.has(e.pointerId)) {
+    if (e.pointerType === 'mouse' && world) {
+      const w = renderer.screenToWorld(view, p.x, p.y);
+      canvas.classList.toggle('over', !!findCreatureAt(world, w.x, w.y, Math.max(6, 8 / view.scale)));
+    }
+    return;
+  }
+  const prev = pointers.get(e.pointerId);
+  pointers.set(e.pointerId, p);
+  if (pinch && pointers.size >= 2) {
+    const [a, b] = pointers.values();
+    const dist = Math.hypot(a.x - b.x, a.y - b.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    view.ox -= (cx - pinch.x) / view.scale;
+    view.oy -= (cy - pinch.y) / view.scale;
+    if (pinch.dist > 0) zoomAt(cx, cy, dist / pinch.dist);
+    pinch = { dist, x: cx, y: cy };
+    return;
+  }
+  if (!drag) return;
+  if (!drag.moved && Math.hypot(p.x - drag.x, p.y - drag.y) > 4) {
+    drag.moved = true;
+    canvas.classList.add('dragging');
+    dismissHint();
+    if (state.follow) setFollow(false);
+  }
+  if (drag.moved) {
+    view.ox -= (p.x - prev.x) / view.scale;
+    view.oy -= (p.y - prev.y) / view.scale;
+    fitted = false;
+    clampView();
+  }
+});
+
+function endPointer(e) {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinch = null;
+  if (pointers.size > 0) return;
+  canvas.classList.remove('dragging');
+  if (drag && !drag.moved && e.type === 'pointerup') {
+    const p = local(e);
+    const w = renderer.screenToWorld(view, p.x, p.y);
+    select(findCreatureAt(world, w.x, w.y, Math.max(6, 8 / view.scale)));
+    dismissHint();
+  }
+  drag = null;
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const p = local(e);
+  const unit = e.deltaMode === 1 ? 0.05 : e.deltaMode === 2 ? 1 : 0.0015;
+  zoomAt(p.x, p.y, Math.exp(-e.deltaY * unit));
+  dismissHint();
+}, { passive: false });
+
+const isTyping = (t) => t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+
+window.addEventListener('keydown', (e) => {
+  if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key;
+  if (k === ' ' || k === 'Spacebar') {
+    // Space always pauses, even when a control button has focus
+    e.preventDefault();
+    if (!e.repeat) setPaused(!state.paused);
+  } else if (k === 'Escape') {
+    select(null);
+  } else if (k >= '1' && k <= '4') {
+    handlers.onSpeed(SPEEDS[Number(k) - 1]);
+  } else if (k === 'f' || k === 'F') {
+    setFollow(!state.follow);
+  } else if (k === 'n' || k === 'N') {
+    newSeed();
+  } else if (k === '0') {
+    fitAll();
+  } else if (k === '+' || k === '=') {
+    zoomAt(renderer.width / 2, renderer.height / 2, 1.25);
+  } else if (k === '-' || k === '_') {
+    zoomAt(renderer.width / 2, renderer.height / 2, 0.8);
+  }
+});
+window.addEventListener('keyup', (e) => {
+  if ((e.key === ' ' || e.key === 'Spacebar') && !isTyping(e.target)) e.preventDefault();
+});
+
+// Keep the same world point centred when the canvas changes size.
+let lastW = 0, lastH = 0;
+new ResizeObserver(() => {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!world || !w || !h) return;
+  if (fitted) {
+    view = renderer.fitView(world);
+    minScale = view.scale * 0.6;
+  } else if (lastW) {
+    view.ox += (lastW - w) / (2 * view.scale);
+    view.oy += (lastH - h) / (2 * view.scale);
+  }
+  lastW = w; lastH = h;
+}).observe(canvas);
+
+if (matchMedia('(pointer: coarse)').matches) hint.textContent = 'Drag to pan · pinch to zoom · tap a creature';
+setTimeout(dismissHint, 12000);
+
+// ---------- boot ----------
+
+let seed = readSeed();
+if (seed == null) {
+  seed = randomSeed();
+  history.replaceState(null, '', `#seed=${seed}`);
+}
+start(seed);
+requestAnimationFrame(frame);
+// console handle for poking at the running pool
+window.tidepool = { get world() { return world; }, state, step: (n = 1) => { for (let i = 0; i < n; i++) { step(world); drainEvents(); } } };
+
+return {  };
+})();
+})();
+</script>
+</body>
+</html>
