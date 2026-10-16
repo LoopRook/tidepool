@@ -1,0 +1,13 @@
+{
+  "name": "tidepool",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An artificial-life tide pool: creatures with genomes and tiny brains evolve into named species.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "serve": "node serve.js",
+    "build": "node build.js"
+  },
+  "license": "MIT"
+}
