@@ -14,7 +14,10 @@ export const ECOLOGY = {
   lightShare: 0.85,       // fraction of algae that sprouts inside a light
   moveCost: 0.0016,       // * speed^2 * radius
   biteCost: 0.012,        // * bite, per tick
-  grazeExponent: 1.5,     // gain = food * (1 - diet)^k
+  grazeExponent: 1.5,     // gain = food * (1 - diet)^k * mouth
+  mouthBase: 0.4,         // mouth = min(max, base + perRadius * radius)
+  mouthPerRadius: 0.08,
+  mouthMax: 1.25,
   preyBodyValue: 1.6,     // * prey radius^2
   preyEnergyShare: 0.4,
   digestTicks: 45,        // a predator can't bite again right after a kill
@@ -354,7 +357,9 @@ function sense(world, c, inp, out) {
 function graze(world, c) {
   const { food, _foodGrid: g } = world;
   const r = c.pheno.radius + 2;
-  const eff = Math.pow(1 - c.pheno.diet, ECOLOGY.grazeExponent);
+  // Small mouths waste part of each pellet; without this, tiny fast breeders always win.
+  const mouth = Math.min(ECOLOGY.mouthMax, ECOLOGY.mouthBase + ECOLOGY.mouthPerRadius * c.pheno.radius);
+  const eff = Math.pow(1 - c.pheno.diet, ECOLOGY.grazeExponent) * mouth;
   const x0 = g.cx(c.x - r), x1 = g.cx(c.x + r), y0 = g.cy(c.y - r), y1 = g.cy(c.y + r);
   for (let gy = y0; gy <= y1; gy++) {
     for (let gx = x0; gx <= x1; gx++) {

@@ -32,13 +32,11 @@ its brain think. Space pauses, 1-4 set speed, F follows, N starts a new seed.
 | `src/render.js`, `src/ui.js`, `src/main.js` | canvas art, side panels, loop and input |
 | `build.js`, `serve.js` | single-file bundler, dev server |
 
-## Status (paused 2026-10-16)
+## Status (2026-10-19)
 
-Working and playable. The unfinished part is **ecology tuning** in `world.js`/`genome.js`:
+Playable. Ecology tuning, round one, is done: a size trade-off (small mouths waste food)
+keeps a spread of body sizes, and speciation is down to a few lasting species
+per month. `node bench/probe.js 30 1,2` prints the vital signs.
 
-- Speciation fires far too often (~20 short-lived one-creature species per day;
-  the journal hides most of them). Target: a lasting new species every few days.
-- Bodies evolve down to the minimum size; bigger bodies need a real payoff.
-- `test/world.test.js` hasn't been written yet.
-
-Planned next: a phylogeny ("tree of life") panel, `src/phylo.js`.
+Next: predators currently die out within days; `test/world.test.js`;
+a tree-of-life panel; a sound layer; a long-run "chronicle" reader.

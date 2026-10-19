@@ -75,7 +75,7 @@ export function mutate(genome, rng, strength = 1) {
   for (const t of TRAITS) {
     let v = genome.traits[t];
     if (rng.next() < 0.4) v += rng.gauss() * 0.05 * strength;
-    if (rng.next() < 0.015 * strength) v += rng.gauss() * 0.2; // rare larger jump
+    if (rng.next() < 0.004 * strength) v += rng.gauss() * 0.12; // rare larger jump
     traits[t] = CIRCULAR[t] ? ((v % 1) + 1) % 1 : reflect01(v);
   }
   const src = genome.weights;
@@ -147,6 +147,6 @@ export function express(genome) {
     litterSize: 1 + Math.min(2, Math.floor(t.brood * 3)),
     lifespan: Math.round(3000 + 11000 * t.longevity),
     // Bigger bodies, sharper senses and longer lives all cost upkeep.
-    metabolism: (0.01 + 0.008 * radius + 0.0004 * r2 + 0.0003 * senseRange) * (0.85 + 0.3 * t.longevity),
+    metabolism: (0.01 + 0.004 * radius + 0.0004 * r2 + 0.0003 * senseRange) * (0.85 + 0.3 * t.longevity),
   };
 }
