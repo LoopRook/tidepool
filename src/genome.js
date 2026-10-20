@@ -61,12 +61,14 @@ function reflect01(v) {
   return v < 0 ? 0 : v > 1 ? 1 : v;
 }
 
-export function randomGenome(rng) {
+export function randomGenome(rng, kind = 'grazer') {
   const traits = {};
   for (const t of TRAITS) traits[t] = rng.next();
-  // Most founders graze; carnivory has to be earned (or comes from a lucky draw).
-  traits.diet = rng.next() * rng.next() * 0.8;
-  traits.size = 0.15 + rng.next() * 0.6;
+  // Most founders graze. Evolving carnivory from scratch means crossing a valley
+  // (half-hunters are bad at both), so worlds seed a few big hunters outright.
+  const hunter = kind === 'predator';
+  traits.diet = hunter ? 0.6 + rng.next() * 0.3 : rng.next() * rng.next() * 0.8;
+  traits.size = hunter ? 0.5 + rng.next() * 0.35 : 0.15 + rng.next() * 0.6;
   return { traits, weights: priorWeights(rng, traits.diet) };
 }
 

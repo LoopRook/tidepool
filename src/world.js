@@ -20,7 +20,7 @@ export const ECOLOGY = {
   mouthMax: 1.25,
   preyBodyValue: 1.6,     // * prey radius^2
   preyEnergyShare: 0.4,
-  digestTicks: 45,        // a predator can't bite again right after a kill
+  digestTicks: 200,       // a predator can't bite again right after a kill
   minBreedAge: 240,
   parentKeeps: 0.45,
   birthLoss: 0.15,
@@ -207,7 +207,7 @@ export function spawnCreature(world, genome, x, y, parent = null) {
 
 export function createWorld(options = {}) {
   const config = {
-    width: 1600, height: 1000, seed: 1, initialCreatures: 60, initialSpecies: 6,
+    width: 1600, height: 1000, seed: 1, initialCreatures: 60, initialSpecies: 6, initialPredators: 2,
     maxFood: 700, foodRate: 3.5, maxCreatures: 600, ...options,
   };
   const rng = makeRng(config.seed);
@@ -230,7 +230,7 @@ export function createWorld(options = {}) {
 
   const founders = [];
   for (let i = 0; i < config.initialSpecies; i++) {
-    const g = randomGenome(rng);
+    const g = randomGenome(rng, i < config.initialPredators ? 'predator' : 'grazer');
     const sp = world.species.found(g, express(g), 0, null);
     founders.push(sp);
   }

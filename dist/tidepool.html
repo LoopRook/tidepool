@@ -492,12 +492,14 @@ function reflect01(v) {
   return v < 0 ? 0 : v > 1 ? 1 : v;
 }
 
-function randomGenome(rng) {
+function randomGenome(rng, kind = 'grazer') {
   const traits = {};
   for (const t of TRAITS) traits[t] = rng.next();
-  // Most founders graze; carnivory has to be earned (or comes from a lucky draw).
-  traits.diet = rng.next() * rng.next() * 0.8;
-  traits.size = 0.15 + rng.next() * 0.6;
+  // Most founders graze. Evolving carnivory from scratch means crossing a valley
+  // (half-hunters are bad at both), so worlds seed a few big hunters outright.
+  const hunter = kind === 'predator';
+  traits.diet = hunter ? 0.6 + rng.next() * 0.3 : rng.next() * rng.next() * 0.8;
+  traits.size = hunter ? 0.5 + rng.next() * 0.35 : 0.15 + rng.next() * 0.6;
   return { traits, weights: priorWeights(rng, traits.diet) };
 }
 
@@ -917,6 +919,10 @@ const { makeBrain, INPUTS } = __m4;
 const { createRegistry, SPECIES_THRESHOLD } = __m5;
 // The tide pool simulation: sensing, thinking, swimming, eating, breeding, dying.
 // Everything here is deterministic given the seed (all randomness via world.rng).
+
+
+
+
 const DAY = 600;
 
 // Ecology constants. Tuned with bench/world.bench.js; see the report there.
@@ -932,7 +938,7 @@ const ECOLOGY = {
   mouthMax: 1.25,
   preyBodyValue: 1.6,     // * prey radius^2
   preyEnergyShare: 0.4,
-  digestTicks: 45,        // a predator can't bite again right after a kill
+  digestTicks: 200,       // a predator can't bite again right after a kill
   minBreedAge: 240,
   parentKeeps: 0.45,
   birthLoss: 0.15,
@@ -1119,7 +1125,7 @@ function spawnCreature(world, genome, x, y, parent = null) {
 
 function createWorld(options = {}) {
   const config = {
-    width: 1600, height: 1000, seed: 1, initialCreatures: 60, initialSpecies: 6,
+    width: 1600, height: 1000, seed: 1, initialCreatures: 60, initialSpecies: 6, initialPredators: 2,
     maxFood: 700, foodRate: 3.5, maxCreatures: 600, ...options,
   };
   const rng = makeRng(config.seed);
@@ -1142,7 +1148,7 @@ function createWorld(options = {}) {
 
   const founders = [];
   for (let i = 0; i < config.initialSpecies; i++) {
-    const g = randomGenome(rng);
+    const g = randomGenome(rng, i < config.initialPredators ? 'predator' : 'grazer');
     const sp = world.species.found(g, express(g), 0, null);
     founders.push(sp);
   }
