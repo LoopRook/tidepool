@@ -34,15 +34,14 @@ its brain think. Space pauses, 1-4 set speed, F follows, N starts a new seed.
 | `chronicle.js` | headless run that writes a pool's natural history |
 | `build.js`, `serve.js` | single-file bundler, dev server |
 
-## Status (2026-10-19)
+## Status (2026-10-20)
 
-Playable. Ecology tuning, round one, is done: a size trade-off (small mouths waste food)
-keeps a spread of body sizes, and speciation is down to a few lasting species
-per month. `node bench/probe.js 30 1,2` prints the vital signs.
+Playable, with sound (press M), a tree-of-life panel, and `node chronicle.js 7 60`
+for a pool's written history.
 
-Try `node chronicle.js 7 60` for a story. Press M in the page for sound.
+Ecology: a size trade-off (small mouths waste food) keeps a spread of body sizes,
+and speciation runs at a few lasting species per month. Two big hunters seed each
+pool; they shape the first ~40-50 days, then usually starve as grazers outgrow them.
+`node bench/probe.js 30 1,2` prints the vital signs.
 
-Predators: two big hunters seed each pool; they shape the first ~40-50 days, then usually starve as grazers outgrow them (making them persist is open).
-
-Next: `test/world.test.js`;
-a tree-of-life panel.
+Open: predators that persist past ~day 50.
