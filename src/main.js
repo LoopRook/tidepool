@@ -3,6 +3,7 @@ import { createWorld, step, findCreatureAt } from './world.js';
 import { narrate } from './journal.js';
 import { createRenderer } from './render.js';
 import { createUI } from './ui.js';
+import { createSound } from './sound.js';
 
 const TICKS_PER_SEC = 60;
 const STEP_BUDGET_MS = 12;   // cap on simulation time per frame so 64x stays responsive
@@ -33,6 +34,14 @@ let fitted = true;      // view still shows the whole pool; refit on resize
 let lastSeq = 0;
 const fresh = [];
 let narrateFailed = false;
+const sound = createSound();
+const btnSound = document.getElementById('btn-sound');
+function toggleSound() {
+  const on = sound.toggle();
+  btnSound.setAttribute('aria-pressed', String(on));
+  btnSound.classList.toggle('on', on);
+}
+btnSound.addEventListener('click', toggleSound);
 
 const handlers = {
   onPlay: () => setPaused(!state.paused),
@@ -138,6 +147,7 @@ function drainEvents() {
       if (!narrateFailed) { console.error('narrate failed', err); narrateFailed = true; }
     }
     if (text) ui.journal(text, e);
+    sound.handle(e, world);
   }
 }
 
@@ -212,6 +222,7 @@ function frame(now) {
     // creatures are removed from the list when they die; catch it even if `alive` wasn't cleared
     if (sel && !state.selectedDead && !world.creatures.includes(sel)) state.selectedDead = true;
     ui.update(world, state);
+    sound.update(world);
     lastUi = now;
   }
   requestAnimationFrame(frame);
@@ -317,6 +328,8 @@ window.addEventListener('keydown', (e) => {
     select(null);
   } else if (k >= '1' && k <= '4') {
     handlers.onSpeed(SPEEDS[Number(k) - 1]);
+  } else if (k === 'm' || k === 'M') {
+    toggleSound();
   } else if (k === 'f' || k === 'F') {
     setFollow(!state.follow);
   } else if (k === 'n' || k === 'N') {
