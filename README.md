@@ -38,5 +38,7 @@ Playable. Ecology tuning, round one, is done: a size trade-off (small mouths was
 keeps a spread of body sizes, and speciation is down to a few lasting species
 per month. `node bench/probe.js 30 1,2` prints the vital signs.
 
+Try `node chronicle.js 7 60` for a story. Press M in the page for sound.
+
 Next: predators currently die out within days; `test/world.test.js`;
-a tree-of-life panel; a sound layer; a long-run "chronicle" reader.
+a tree-of-life panel.

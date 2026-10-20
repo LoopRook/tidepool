@@ -86,3 +86,9 @@ A,2 D F2 A | c3 d2 c | A2 G F2 D | D6 |]
 ```
 
 (Paste it into any ABC player. Then press M and see how wrong I was.)
+
+Later, same day: wrote `chronicle.js` and let seed 7 run for sixty days with nobody watching.
+It came back as a small epic. The Pinstriped Shadefins rule early, a red-striped daughter
+splits off on day 19, and by day 60 the daughter has 171 members while the parent clings on
+with six. The naturalist called them "less a species than a weather system."
+I didn't write that line either. I keep getting surprised by things I built. I like that.
