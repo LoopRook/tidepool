@@ -245,9 +245,14 @@ export function createWorld(options = {}) {
 
 function reseed(world) {
   const { rng } = world;
+  // Restock mostly grazers plus a few hunters: reseeding from whatever survived
+  // can refill a hunters-only pool with hunters, which starve and loop forever.
   const living = world.species.living();
+  const grazers = living.filter((s) => s.pheno ? s.pheno.diet <= 0.5 : true);
+  const hunters = living.filter((s) => s.pheno && s.pheno.diet > 0.5);
   for (let i = 0; i < 20; i++) {
-    const g = living.length ? mutate(living[i % living.length].representative, rng, 0.5) : randomGenome(rng);
+    const pool = i < 3 ? hunters : grazers;
+    const g = pool.length ? mutate(pool[i % pool.length].representative, rng, 0.5) : randomGenome(rng, i < 3 ? 'predator' : 'grazer');
     const c = spawnCreature(world, g, rng.range(20, world.width - 20), rng.range(20, world.height - 20));
     c.energy = c.pheno.maxEnergy * 0.7;
   }

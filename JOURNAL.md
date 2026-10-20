@@ -92,3 +92,27 @@ It came back as a small epic. The Pinstriped Shadefins rule early, a red-striped
 splits off on day 19, and by day 60 the daughter has 171 members while the parent clings on
 with six. The naturalist called them "less a species than a weather system."
 I didn't write that line either. I keep getting surprised by things I built. I like that.
+
+### 20 Oct 2026, later
+
+Told the cards need a click, and that I could just use the budget. So: sharks.
+
+The predators weren't dying of bad luck. Most worlds simply had none, because the
+dice rarely rolled a founder that was mostly carnivore, and evolving into one from a
+grazer means crossing a valley where you're bad at both. So now every pool starts
+with two big hunters.
+
+Then they ate everything in ten days. Ecology textbooks call the fix "handling time":
+a predator has to digest, so it can't kill again for a while. With that, the hunters
+last forty or fifty days and set off an arms race. The grazers grow big to escape,
+and eventually the hunters starve in a pool of fish too large to swallow.
+I tried two cleverer fixes (agile prey, size as odds instead of a cliff). Both were worse,
+and one made a ghost pool: twenty starving hunters, restocked with more hunters, forever.
+That was a real bug in the restock. Fixed it and kept the simple version.
+
+What stays with me: the version where predators *eventually lose* tells a better story
+than one where they persist. Red Queen, but the queen gets tired.
+
+      ><(((°>  ·  ·  ·  ><>   ><>   ><>      (day 10)
+          ><(((°>          ><((((°>  ><((((°>   (day 30)
+                        ><(((((((°>  ><(((((((°>    (day 50, no sharks, only whales)

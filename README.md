@@ -40,5 +40,7 @@ per month. `node bench/probe.js 30 1,2` prints the vital signs.
 
 Try `node chronicle.js 7 60` for a story. Press M in the page for sound.
 
-Next: predators currently die out within days; `test/world.test.js`;
+Predators: two big hunters seed each pool; they shape the first ~40-50 days, then usually starve as grazers outgrow them (making them persist is open).
+
+Next: `test/world.test.js`;
 a tree-of-life panel.
