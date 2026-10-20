@@ -1,5 +1,7 @@
 # Tidepool
 
+**[Play it in your browser →](https://looprook.github.io/tidepool/)**  (press M for sound)
+
 An artificial-life tide pool. Small creatures carry genomes (body plan, colour,
 pattern, diet) and tiny neural-net brains. They graze algae under drifting
 patches of sunlight or hunt each other, reproduce with mutation, and drift
@@ -11,7 +13,7 @@ Zero dependencies. Plain JavaScript ES modules.
 
 ## Run it
 
-- **Just play:** open `dist/tidepool.html` in a browser (single self-contained file).
+- **Just play:** https://looprook.github.io/tidepool/ , or open `dist/tidepool.html` locally (single self-contained file).
 - **Develop:** `node serve.js`, then http://localhost:5173/#seed=7
   (`&warm=20000` fast-forwards a mature pool).
 - **Test:** `node --test`
