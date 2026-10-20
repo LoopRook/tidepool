@@ -929,6 +929,10 @@ const { makeBrain, INPUTS } = __m4;
 const { createRegistry, SPECIES_THRESHOLD } = __m5;
 // The tide pool simulation: sensing, thinking, swimming, eating, breeding, dying.
 // Everything here is deterministic given the seed (all randomness via world.rng).
+
+
+
+
 const DAY = 600;
 
 // Ecology constants. Tuned with bench/world.bench.js; see the report there.
@@ -944,14 +948,23 @@ const ECOLOGY = {
   mouthMax: 1.25,
   preyBodyValue: 1.6,     // * prey radius^2
   preyEnergyShare: 0.4,
-  digestTicks: 200,       // a predator can't bite again right after a kill
+  digestTicks: 200,       // a predator can't bite again right after a full meal...
+  fullMeal: 0.4,          // ...one worth this share of its max energy; snacks digest faster
   minBreedAge: 240,
   parentKeeps: 0.45,
   birthLoss: 0.15,
   crossoverChance: 0.15,
   mutationStrength: 0.6,
   starvingFraction: 0.15, // below this energy share, cannibalism is allowed
+  hatchScale: 0.45,       // newborns start at this fraction of adult radius...
+  growTicks: 900,         // ...and reach full size after this many ticks
 };
+
+// Body radius right now. Young fish are small, so even a pool of giants feeds its hunters.
+function bodyRadius(c) {
+  const g = c.age >= ECOLOGY.growTicks ? 1 : ECOLOGY.hatchScale + (1 - ECOLOGY.hatchScale) * c.age / ECOLOGY.growTicks;
+  return c.pheno.radius * g;
+}
 
 const EVENT_CAP = 300;
 const HISTORY_CAP = 800;
@@ -1242,7 +1255,7 @@ function sense(world, c, inp, out) {
     }
   }
 
-  const r = p.radius, preyMax = r * 0.8, threatMin = r * 1.25;
+  const r = bodyRadius(c), preyMax = r * 0.8, threatMin = r * 1.25;
   let bestP = R2, px = 0, py = 0, hasP = false;
   let bestT = R2, tx = 0, ty = 0, hasT = false;
   let bestK = R2, kx = 0, ky = 0, kin = null;
@@ -1257,7 +1270,7 @@ function sense(world, c, inp, out) {
         if (o === c || !o.alive) continue;
         const dx = o.x - x, dy = o.y - y, d2 = dx * dx + dy * dy;
         if (d2 >= R2) continue;
-        const or = o.pheno.radius;
+        const or = bodyRadius(o);
         if (or < preyMax) { if (d2 < bestP) { bestP = d2; px = dx; py = dy; hasP = true; } }
         else if (or > threatMin && o.pheno.diet > 0.5) { if (d2 < bestT) { bestT = d2; tx = dx; ty = dy; hasT = true; } }
         if (o.speciesId === c.speciesId && d2 < bestK) { bestK = d2; kx = dx; ky = dy; kin = o; }
@@ -1309,7 +1322,8 @@ function graze(world, c) {
 function hunt(world, c) {
   const { creatures, _grid: g } = world;
   const p = c.pheno;
-  const reach = p.radius + 14 * 0.85;
+  const cr = bodyRadius(c);
+  const reach = cr + 14 * 0.85;
   const starving = c.energy < p.maxEnergy * ECOLOGY.starvingFraction;
   const n = g.start[g.start.length - 1];
   const x0 = g.cx(c.x - reach), x1 = g.cx(c.x + reach), y0 = g.cy(c.y - reach), y1 = g.cy(c.y + reach);
@@ -1321,15 +1335,15 @@ function hunt(world, c) {
         if (idx >= n) continue;
         const o = creatures[idx];
         if (o === c || !o.alive) continue;
-        const or = o.pheno.radius;
-        if (or >= p.radius * 0.85) continue;
+        const or = bodyRadius(o);
+        if (or >= cr * 0.85) continue;
         if (o.speciesId === c.speciesId && !starving) continue;
-        const dx = o.x - c.x, dy = o.y - c.y, rr = p.radius + or;
+        const dx = o.x - c.x, dy = o.y - c.y, rr = cr + or;
         if (dx * dx + dy * dy > rr * rr) continue;
         const gain = (Math.max(0, o.energy) * ECOLOGY.preyEnergyShare + or * or * ECOLOGY.preyBodyValue) * p.diet;
         c.energy += gain;
         c.kills++;
-        c.cooldown = ECOLOGY.digestTicks;
+        c.cooldown = Math.round(ECOLOGY.digestTicks * Math.min(1, gain / (ECOLOGY.fullMeal * p.maxEnergy)));
         world.stats.predations++;
         emit(world, { type: 'predation', predatorId: c.id, preyId: o.id, predatorSpecies: c.speciesId, preySpecies: o.speciesId });
         die(world, o, 'eaten');
@@ -1434,7 +1448,7 @@ function findCreatureAt(world, x, y, slop = 6) {
   return best;
 }
 
-return { DAY, ECOLOGY, spawnCreature, createWorld, step, findCreatureAt };
+return { DAY, ECOLOGY, bodyRadius, spawnCreature, createWorld, step, findCreatureAt };
 })();
 
 const __m6 = (() => {
@@ -1922,11 +1936,10 @@ return { narrate };
 })();
 
 const __m7 = (() => {
-
+const { bodyRadius } = __m1;
 // Canvas renderer for the pool.
 // View = { scale, ox, oy }: screen (CSS px) = (world - o) * scale, so (ox, oy) is
 // the world point at the canvas's top-left corner.
-
 const TAU = Math.PI * 2;
 const looks = new WeakMap(); // pheno -> cached colours and geometry
 const SHADOW = 'rgba(0, 14, 20, 0.26)';
@@ -2366,11 +2379,12 @@ function createRenderer(canvas) {
       const c = creatures[i];
       if (c.x < vx0 || c.x > vx1 || c.y < vy0 || c.y > vy1) continue;
       const L = lookFor(c.pheno);
-      if (L.r * scale < 1.8) continue;
-      const off = L.r * 0.45;
+      const g = bodyRadius(c) / L.r; // the young are drawn small and grow
+      if (L.r * g * scale < 1.8) continue;
+      const off = L.r * g * 0.45;
       const sx = c.x + off, sy = c.y + off * 1.4;
-      ctx.moveTo(sx + Math.cos(c.angle) * L.rx, sy + Math.sin(c.angle) * L.rx);
-      ctx.ellipse(sx, sy, L.rx, L.ry, c.angle, 0, TAU);
+      ctx.moveTo(sx + Math.cos(c.angle) * L.rx * g, sy + Math.sin(c.angle) * L.rx * g);
+      ctx.ellipse(sx, sy, L.rx * g, L.ry * g, c.angle, 0, TAU);
     }
     ctx.fill();
 
@@ -2382,11 +2396,12 @@ function createRenderer(canvas) {
       const L = lookFor(p);
       const e = c.energy / p.maxEnergy;
       const level = e > 0.4 ? 0 : e > 0.18 ? 1 : 2;
-      const onScreen = L.r * scale;
+      const g = bodyRadius(c) / L.r;
+      const onScreen = L.r * g * scale;
       if (onScreen < 1.3) {
         ctx.fillStyle = L.body[level];
         ctx.beginPath();
-        ctx.arc(c.x, c.y, Math.max(L.r, 1.2 * px), 0, TAU);
+        ctx.arc(c.x, c.y, Math.max(L.r * g, 1.2 * px), 0, TAU);
         ctx.fill();
         continue;
       }
@@ -2394,7 +2409,7 @@ function createRenderer(canvas) {
       const thrust = out ? out[1] : 0.5, turn = out ? out[0] : 0;
       const swing = Math.sin(c.phase + creatureT * 7.5) * (0.1 + 0.5 * thrust) - turn * 0.35;
       const flap = Math.sin(c.phase * 1.7 + creatureT * 4.2);
-      const cs = Math.cos(c.angle) * S, sn = Math.sin(c.angle) * S;
+      const cs = Math.cos(c.angle) * S * g, sn = Math.sin(c.angle) * S * g;
       ctx.setTransform(cs, sn, -sn, cs, c.x * S + ex, c.y * S + ey);
       if (onScreen > SPRITE_MAX_PX) {
         drawLocal(ctx, L, swing, flap, level, 2, px);

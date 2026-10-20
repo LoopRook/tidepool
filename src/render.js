@@ -2,6 +2,8 @@
 // View = { scale, ox, oy }: screen (CSS px) = (world - o) * scale, so (ox, oy) is
 // the world point at the canvas's top-left corner.
 
+import { bodyRadius } from './world.js';
+
 const TAU = Math.PI * 2;
 const looks = new WeakMap(); // pheno -> cached colours and geometry
 const SHADOW = 'rgba(0, 14, 20, 0.26)';
@@ -441,11 +443,12 @@ export function createRenderer(canvas) {
       const c = creatures[i];
       if (c.x < vx0 || c.x > vx1 || c.y < vy0 || c.y > vy1) continue;
       const L = lookFor(c.pheno);
-      if (L.r * scale < 1.8) continue;
-      const off = L.r * 0.45;
+      const g = bodyRadius(c) / L.r; // the young are drawn small and grow
+      if (L.r * g * scale < 1.8) continue;
+      const off = L.r * g * 0.45;
       const sx = c.x + off, sy = c.y + off * 1.4;
-      ctx.moveTo(sx + Math.cos(c.angle) * L.rx, sy + Math.sin(c.angle) * L.rx);
-      ctx.ellipse(sx, sy, L.rx, L.ry, c.angle, 0, TAU);
+      ctx.moveTo(sx + Math.cos(c.angle) * L.rx * g, sy + Math.sin(c.angle) * L.rx * g);
+      ctx.ellipse(sx, sy, L.rx * g, L.ry * g, c.angle, 0, TAU);
     }
     ctx.fill();
 
@@ -457,11 +460,12 @@ export function createRenderer(canvas) {
       const L = lookFor(p);
       const e = c.energy / p.maxEnergy;
       const level = e > 0.4 ? 0 : e > 0.18 ? 1 : 2;
-      const onScreen = L.r * scale;
+      const g = bodyRadius(c) / L.r;
+      const onScreen = L.r * g * scale;
       if (onScreen < 1.3) {
         ctx.fillStyle = L.body[level];
         ctx.beginPath();
-        ctx.arc(c.x, c.y, Math.max(L.r, 1.2 * px), 0, TAU);
+        ctx.arc(c.x, c.y, Math.max(L.r * g, 1.2 * px), 0, TAU);
         ctx.fill();
         continue;
       }
@@ -469,7 +473,7 @@ export function createRenderer(canvas) {
       const thrust = out ? out[1] : 0.5, turn = out ? out[0] : 0;
       const swing = Math.sin(c.phase + creatureT * 7.5) * (0.1 + 0.5 * thrust) - turn * 0.35;
       const flap = Math.sin(c.phase * 1.7 + creatureT * 4.2);
-      const cs = Math.cos(c.angle) * S, sn = Math.sin(c.angle) * S;
+      const cs = Math.cos(c.angle) * S * g, sn = Math.sin(c.angle) * S * g;
       ctx.setTransform(cs, sn, -sn, cs, c.x * S + ex, c.y * S + ey);
       if (onScreen > SPRITE_MAX_PX) {
         drawLocal(ctx, L, swing, flap, level, 2, px);

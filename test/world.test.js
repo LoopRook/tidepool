@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorld, step, spawnCreature, findCreatureAt, DAY } from '../src/world.js';
+import { createWorld, step, spawnCreature, findCreatureAt, bodyRadius, ECOLOGY, DAY } from '../src/world.js';
 import { randomGenome } from '../src/genome.js';
 import { makeRng } from '../src/rng.js';
 
@@ -59,4 +59,34 @@ test('spawnCreature and findCreatureAt agree', () => {
   const c = spawnCreature(w, randomGenome(makeRng(99)), 400, 300);
   assert.equal(findCreatureAt(w, 401, 300), c);
   assert.equal(findCreatureAt(w, 1200, 900), null);
+});
+
+test('newborns start small and grow to adult size', () => {
+  const w = createWorld({ seed: 1, initialCreatures: 0 });
+  const c = spawnCreature(w, randomGenome(makeRng(5)), 400, 300);
+  assert.equal(bodyRadius(c), c.pheno.radius * ECOLOGY.hatchScale);
+  c.age = ECOLOGY.growTicks / 2;
+  assert.ok(bodyRadius(c) > c.pheno.radius * ECOLOGY.hatchScale && bodyRadius(c) < c.pheno.radius);
+  c.age = ECOLOGY.growTicks;
+  assert.equal(bodyRadius(c), c.pheno.radius);
+});
+
+test('hunters can take the young of fish too big for them as adults', () => {
+  const rng = makeRng(8);
+  const hunterG = randomGenome(rng, 'predator'), preyG = randomGenome(rng, 'grazer');
+  hunterG.traits.size = 0.7; preyG.traits.size = 0.8; // adult prey outgrows the hunter
+  const setup = (preyAge) => {
+    const w = createWorld({ seed: 2, initialCreatures: 0 });
+    const h = spawnCreature(w, hunterG, 400, 300);
+    h.age = 5000; h.energy = h.pheno.maxEnergy * 0.5;
+    const p = spawnCreature(w, preyG, 400 + bodyRadius(h), 300);
+    p.age = preyAge;
+    // Hold the hunter still with its mouth open on the prey for one tick.
+    h.brain = { think: () => [0, 0, 1] };
+    p.brain = { think: () => [0, 0, 0] };
+    step(w);
+    return w.stats.predations;
+  };
+  assert.equal(setup(5000), 0);
+  assert.equal(setup(0), 1);
 });

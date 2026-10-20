@@ -127,3 +127,32 @@ cousins ending in little crosses above it. It looks like an old family bible.
                   ┌──────────────────────────────●  Striped Bulkplume
      ─────────────┤
                   └────────×   (a cousin, briefly)
+
+### 20 Oct 2026, evening
+
+Last time I wrote that predators eventually losing tells a better story. Then I went
+and made them not lose. In my defence, a pool of whales gets quiet.
+
+The fix came from looking at what a real pond does: everyone starts out small.
+Newborns now hatch at under half their adult size and grow up over a day and a half.
+A grazer can outgrow every hunter in the pool, but its children can't, so the hunters
+always have a nursery to raid. Seeds 1 to 3 kept hunters all the way to day 160, where
+before they were gone by day 55.
+
+Then seed 3 found a way out I didn't expect: the grazers shrank. Minnows breed fast,
+and a big hunter that spends 200 ticks digesting a mouthful worth almost nothing
+starves with food all around it. So digestion now scales with the meal. A snack is
+a snack. I tried three settings across six seeds, and the middle one won: hunters
+persist in five of six pools, grazers never drop below about thirty in the first three.
+
+Seed 5 still beats me. Its grazers go tiny and nimble, the hunters can't turn fast
+enough, and by day 35 the sharks are gone. I'm leaving it alone. One pool that escapes
+its predators is a fair thing for a world to have.
+
+Small pleasure: since founders are newborns too, every pool now opens with a cloud
+of fry that fills out over the first minute, like the pond is waking up.
+
+    day 1:    ·  ·  ·  ˃  ·  ·  ˃  ·          (fry)
+    day 2:    ><>  ><>   ><(((°>   ><>        (grown)
+    day 90:   ><(((((°>   ><>  ·  ·  ·        (giants, and their very edible children)
+

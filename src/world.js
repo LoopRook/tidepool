@@ -20,14 +20,23 @@ export const ECOLOGY = {
   mouthMax: 1.25,
   preyBodyValue: 1.6,     // * prey radius^2
   preyEnergyShare: 0.4,
-  digestTicks: 200,       // a predator can't bite again right after a kill
+  digestTicks: 200,       // a predator can't bite again right after a full meal...
+  fullMeal: 0.4,          // ...one worth this share of its max energy; snacks digest faster
   minBreedAge: 240,
   parentKeeps: 0.45,
   birthLoss: 0.15,
   crossoverChance: 0.15,
   mutationStrength: 0.6,
   starvingFraction: 0.15, // below this energy share, cannibalism is allowed
+  hatchScale: 0.45,       // newborns start at this fraction of adult radius...
+  growTicks: 900,         // ...and reach full size after this many ticks
 };
+
+// Body radius right now. Young fish are small, so even a pool of giants feeds its hunters.
+export function bodyRadius(c) {
+  const g = c.age >= ECOLOGY.growTicks ? 1 : ECOLOGY.hatchScale + (1 - ECOLOGY.hatchScale) * c.age / ECOLOGY.growTicks;
+  return c.pheno.radius * g;
+}
 
 const EVENT_CAP = 300;
 const HISTORY_CAP = 800;
@@ -318,7 +327,7 @@ function sense(world, c, inp, out) {
     }
   }
 
-  const r = p.radius, preyMax = r * 0.8, threatMin = r * 1.25;
+  const r = bodyRadius(c), preyMax = r * 0.8, threatMin = r * 1.25;
   let bestP = R2, px = 0, py = 0, hasP = false;
   let bestT = R2, tx = 0, ty = 0, hasT = false;
   let bestK = R2, kx = 0, ky = 0, kin = null;
@@ -333,7 +342,7 @@ function sense(world, c, inp, out) {
         if (o === c || !o.alive) continue;
         const dx = o.x - x, dy = o.y - y, d2 = dx * dx + dy * dy;
         if (d2 >= R2) continue;
-        const or = o.pheno.radius;
+        const or = bodyRadius(o);
         if (or < preyMax) { if (d2 < bestP) { bestP = d2; px = dx; py = dy; hasP = true; } }
         else if (or > threatMin && o.pheno.diet > 0.5) { if (d2 < bestT) { bestT = d2; tx = dx; ty = dy; hasT = true; } }
         if (o.speciesId === c.speciesId && d2 < bestK) { bestK = d2; kx = dx; ky = dy; kin = o; }
@@ -385,7 +394,8 @@ function graze(world, c) {
 function hunt(world, c) {
   const { creatures, _grid: g } = world;
   const p = c.pheno;
-  const reach = p.radius + 14 * 0.85;
+  const cr = bodyRadius(c);
+  const reach = cr + 14 * 0.85;
   const starving = c.energy < p.maxEnergy * ECOLOGY.starvingFraction;
   const n = g.start[g.start.length - 1];
   const x0 = g.cx(c.x - reach), x1 = g.cx(c.x + reach), y0 = g.cy(c.y - reach), y1 = g.cy(c.y + reach);
@@ -397,15 +407,15 @@ function hunt(world, c) {
         if (idx >= n) continue;
         const o = creatures[idx];
         if (o === c || !o.alive) continue;
-        const or = o.pheno.radius;
-        if (or >= p.radius * 0.85) continue;
+        const or = bodyRadius(o);
+        if (or >= cr * 0.85) continue;
         if (o.speciesId === c.speciesId && !starving) continue;
-        const dx = o.x - c.x, dy = o.y - c.y, rr = p.radius + or;
+        const dx = o.x - c.x, dy = o.y - c.y, rr = cr + or;
         if (dx * dx + dy * dy > rr * rr) continue;
         const gain = (Math.max(0, o.energy) * ECOLOGY.preyEnergyShare + or * or * ECOLOGY.preyBodyValue) * p.diet;
         c.energy += gain;
         c.kills++;
-        c.cooldown = ECOLOGY.digestTicks;
+        c.cooldown = Math.round(ECOLOGY.digestTicks * Math.min(1, gain / (ECOLOGY.fullMeal * p.maxEnergy)));
         world.stats.predations++;
         emit(world, { type: 'predation', predatorId: c.id, preyId: o.id, predatorSpecies: c.speciesId, preySpecies: o.speciesId });
         die(world, o, 'eaten');

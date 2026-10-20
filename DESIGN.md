@@ -236,7 +236,10 @@ Simulation rules (tune freely, but keep these behaviours):
 - Grazing: touching food eats it, gain `food.energy * (1 - diet)^1.5`-ish.
 - Predation: if `bite > 0.5`, `diet > 0.35` and touching a creature whose radius is
   < 0.85x own, kill it and gain `prey.energy * 0.4 + prey.radius^2 * c` scaled by `diet`.
-  Never eat same species unless starving (energy < 15%).
+  Never eat same species unless starving (energy < 15%). Sizes here are the current
+  body radius: newborns hatch at 45% of adult radius and grow to full size over
+  900 ticks, so hunters can always take the young. After a kill a predator digests
+  for up to 200 ticks, scaled down for meals worth less than 40% of its max energy.
 - Reproduction: when energy >= `reproduceAt * maxEnergy` and age > some minimum, split:
   parent keeps ~45%, the rest is divided among `litterSize` children (with some loss).
   Child genome = `mutate(parent.genome)`, or with small chance `crossover` with a

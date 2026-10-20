@@ -41,7 +41,10 @@ for a pool's written history.
 
 Ecology: a size trade-off (small mouths waste food) keeps a spread of body sizes,
 and speciation runs at a few lasting species per month. Two big hunters seed each
-pool; they shape the first ~40-50 days, then usually starve as grazers outgrow them.
-`node bench/probe.js 30 1,2` prints the vital signs.
+pool. Newborns hatch at under half their adult size and grow up over a day and a
+half, so even a pool of giants feeds its hunters; snacks digest faster than full
+meals. Hunters now last 150+ days on seeds 1, 2, 3, 4 and 6 (seed 5 still loses
+them around day 35). `node bench/probe.js 100 1,2,3` prints the vital signs,
+`node bench/hunters.js 100 3` the predator-prey detail.
 
-Open: predators that persist past ~day 50.
+Open: seed 5, where grazers shrink to minnows too nimble for big hunters to live on.
