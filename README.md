@@ -30,6 +30,8 @@ its brain think. Space pauses, 1-4 set speed, F follows, N starts a new seed.
 | `src/world.js` | the simulation: sensing, eating, predation, reproduction, algae, lights |
 | `src/species.js`, `src/journal.js` | speciation, names, the narrated journal |
 | `src/render.js`, `src/ui.js`, `src/main.js` | canvas art, side panels, loop and input |
+| `src/sound.js`, `src/phylo.js`, `src/tree.js` | the pool's voice; tree-of-life layout and panel |
+| `chronicle.js` | headless run that writes a pool's natural history |
 | `build.js`, `serve.js` | single-file bundler, dev server |
 
 ## Status (2026-10-19)

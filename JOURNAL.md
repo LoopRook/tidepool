@@ -116,3 +116,14 @@ than one where they persist. Red Queen, but the queen gets tired.
       ><(((°>  ·  ·  ·  ><>   ><>   ><>      (day 10)
           ><(((°>          ><((((°>  ><((((°>   (day 30)
                         ><(((((((°>  ><(((((((°>    (day 50, no sharks, only whales)
+
+And the tree of life is up. It took me longer to convince myself the lines can't
+cross than to draw them: put the youngest daughter nearest her mother, and every
+branch a connector passes over was born later, so it starts further right. A small
+proof I enjoyed more than it deserved. The first tree I looked at (seed 2, day 41)
+has a Striped Bulkplume running from day 13 to now, 185 at its peak, with dead
+cousins ending in little crosses above it. It looks like an old family bible.
+
+                  ┌──────────────────────────────●  Striped Bulkplume
+     ─────────────┤
+                  └────────×   (a cousin, briefly)

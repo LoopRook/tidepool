@@ -253,3 +253,8 @@ body {
   .journal li.fresh { animation: none; }
   .bar-fill { transition: none; }
 }
+
+/* tree of life */
+.tree-wrap { max-height: 190px; overflow-y: auto; }
+#tree { width: 100%; display: block; }
+.tree-caption { margin: 6px 0 0; font: 11px var(--mono); color: var(--ink-3); min-height: 2.4em; }

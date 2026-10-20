@@ -263,6 +263,11 @@ body {
   .bar-fill { transition: none; }
 }
 
+/* tree of life */
+.tree-wrap { max-height: 190px; overflow-y: auto; }
+#tree { width: 100%; display: block; }
+.tree-caption { margin: 6px 0 0; font: 11px var(--mono); color: var(--ink-3); min-height: 2.4em; }
+
 </style>
 </head>
 <body>
@@ -310,6 +315,11 @@ body {
       <h2>Population</h2>
       <div class="chart-wrap"><canvas id="chart" aria-label="Population by species over time"></canvas></div>
       <div class="chart-axis"><span id="chart-start"></span><span id="chart-max"></span><span id="chart-end"></span></div>
+    </section>
+    <section class="card">
+      <h2>Tree of life</h2>
+      <div class="tree-wrap"><canvas id="tree" aria-label="Species family tree over time"></canvas></div>
+      <p class="tree-caption" id="tree-caption">Hover a branch to name it; click a living one to follow it.</p>
     </section>
     <section class="card">
       <h2>Field guide <span class="count" id="guide-count"></span></h2>
@@ -3093,13 +3103,157 @@ function createSound() {
 return { speciesPitch, createSound };
 })();
 
+const __m11 = (() => {
+
+// Tree-of-life layout. Pure: species list in, rows out.
+//
+// Each species is a horizontal bar from its founding to its extinction (or now).
+// Daughters sit below their parent, latest-founded first: a connector drops from
+// the parent at the daughter's founding time, and every subtree it passes over was
+// founded later, so its bars start to the right of the connector. No crossings.
+
+function isNotable(s) {
+  return s.extinctTick == null || (s.peakPopulation || 0) >= 5;
+}
+
+function layoutPhylogeny(species, tick, options = {}) {
+  const keepIf = options.filter || isNotable;
+  const byId = new Map(species.map((s) => [s.id, s]));
+  const keep = new Set();
+  for (const s of species) {
+    if (!keepIf(s)) continue;
+    // keep the whole ancestry so every notable species stays connected
+    for (let a = s; a && !keep.has(a.id); a = byId.get(a.parentId)) keep.add(a.id);
+  }
+  const children = new Map();
+  const roots = [];
+  for (const s of species) {
+    if (!keep.has(s.id)) continue;
+    if (s.parentId != null && keep.has(s.parentId)) {
+      if (!children.has(s.parentId)) children.set(s.parentId, []);
+      children.get(s.parentId).push(s);
+    } else roots.push(s);
+  }
+  roots.sort((a, b) => a.founderTick - b.founderTick || a.id - b.id);
+
+  const nodes = [];
+  const rowOf = new Map();
+  const place = (s, parentRow) => {
+    const row = nodes.length;
+    rowOf.set(s.id, row);
+    nodes.push({
+      id: s.id, row, parentRow,
+      start: s.founderTick, end: s.extinctTick ?? tick,
+      alive: s.extinctTick == null,
+      hue: s.hue, peak: s.peakPopulation || 0, name: s.name,
+    });
+    const kids = (children.get(s.id) || []).slice().sort((a, b) => b.founderTick - a.founderTick || b.id - a.id);
+    for (const k of kids) place(k, row);
+  };
+  for (const r of roots) place(r, null);
+  return { nodes, rows: nodes.length, start: 0, end: Math.max(1, tick) };
+}
+
+return { isNotable, layoutPhylogeny };
+})();
+
+const __m10 = (() => {
+const { layoutPhylogeny } = __m11;
+// Tree-of-life panel: draws layoutPhylogeny() on a canvas, with hover captions
+// and click-to-follow for living species.
+
+const ROW = 13, PAD = 8, REDRAW_MS = 1000;
+
+function createTreePanel(canvas, caption, onSelectSpecies) {
+  let layout = null, lastDraw = 0, hoverRow = -1, dayTicks = 600;
+
+  const xOf = (t, w) => PAD + (t / layout.end) * (w - PAD * 2);
+  const describe = (n) => {
+    const a = Math.floor(n.start / dayTicks) + 1, b = Math.floor(n.end / dayTicks) + 1;
+    const span = n.alive ? `day ${a} to now` : `day ${a} to ${b}, extinct`;
+    return `${n.name.common} (${n.name.genus} ${n.name.epithet}) · ${span} · peak ${n.peak}`;
+  };
+
+  function draw() {
+    const w = canvas.clientWidth || 300;
+    const h = Math.max(ROW * 2, layout.rows * ROW + PAD);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.height = `${h}px`;
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const y = (row) => PAD / 2 + row * ROW + ROW / 2;
+    for (const n of layout.nodes) {
+      const x0 = xOf(n.start, w), x1 = Math.max(x0 + 2, xOf(n.end, w)), yy = y(n.row);
+      const col = `hsla(${n.hue}, 70%, 62%, ${n.alive ? 1 : 0.45})`;
+      if (n.parentRow != null) {
+        ctx.strokeStyle = `hsla(${n.hue}, 50%, 60%, 0.35)`; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x0, y(n.parentRow)); ctx.lineTo(x0, yy); ctx.stroke();
+      }
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.5 + Math.min(3, Math.log2(1 + n.peak) / 2);
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x0, yy); ctx.lineTo(x1, yy); ctx.stroke();
+      ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = 1.2;
+      if (n.alive) { ctx.beginPath(); ctx.arc(x1, yy, 3, 0, Math.PI * 2); ctx.fill(); }
+      else { ctx.beginPath(); ctx.moveTo(x1 - 2.5, yy - 2.5); ctx.lineTo(x1 + 2.5, yy + 2.5); ctx.moveTo(x1 + 2.5, yy - 2.5); ctx.lineTo(x1 - 2.5, yy + 2.5); ctx.stroke(); }
+      if (n.row === hoverRow) {
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fillRect(0, yy - ROW / 2, w, ROW);
+      }
+    }
+  }
+
+  const rowAt = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return Math.floor((e.clientY - r.top - PAD / 2) / ROW);
+  };
+  canvas.addEventListener('mousemove', (e) => {
+    if (!layout) return;
+    const row = rowAt(e);
+    if (row === hoverRow) return;
+    hoverRow = row;
+    const n = layout.nodes[row];
+    caption.textContent = n ? describe(n) : 'Hover a branch to name it; click a living one to follow it.';
+    canvas.style.cursor = n && n.alive ? 'pointer' : 'default';
+    draw();
+  });
+  canvas.addEventListener('mouseleave', () => { hoverRow = -1; if (layout) draw(); });
+  canvas.addEventListener('click', (e) => {
+    const n = layout && layout.nodes[rowAt(e)];
+    if (n && n.alive) onSelectSpecies(n.id);
+  });
+
+  return {
+    update(world, force = false) {
+      const now = performance.now();
+      if (!force && now - lastDraw < REDRAW_MS) return;
+      lastDraw = now;
+      layout = layoutPhylogeny(world.species.all(), world.tick);
+      draw();
+    },
+    reset() { hoverRow = -1; lastDraw = 0; caption.textContent = 'Hover a branch to name it; click a living one to follow it.'; },
+  };
+}
+
+return { createTreePanel };
+})();
+
 const __m0 = (() => {
 const { createWorld, step, findCreatureAt } = __m1;
 const { narrate } = __m6;
 const { createRenderer } = __m7;
 const { createUI } = __m8;
 const { createSound } = __m9;
+const { createTreePanel } = __m10;
 // Browser entry: builds the world from #seed=N, runs the loop, handles input.
+
+
+
+
+
+
 const TICKS_PER_SEC = 60;
 const STEP_BUDGET_MS = 12;   // cap on simulation time per frame so 64x stays responsive
 const UI_INTERVAL_MS = 150;  // panels refresh ~6-7 times a second; the canvas every frame
@@ -3166,6 +3320,7 @@ const handlers = {
   onDeselect: () => select(null),
 };
 const ui = createUI(handlers);
+const tree = createTreePanel(document.getElementById('tree'), document.getElementById('tree-caption'), (id) => handlers.onSelectSpecies(id));
 
 function readSeed() {
   const m = /seed=(\d+)/.exec(location.hash);
@@ -3183,6 +3338,7 @@ function start(seed) {
   lastSeq = 0;
   state.selected = null; state.selectedDead = false; state.death = null; state.follow = false;
   ui.reset(world);
+  tree.reset();
   fitAll();
   drainEvents();
   // ?warm=N fast-forwards N ticks on load (handy for checking a mature pool)
@@ -3318,6 +3474,7 @@ function frame(now) {
     if (sel && !state.selectedDead && !world.creatures.includes(sel)) state.selectedDead = true;
     ui.update(world, state);
     sound.update(world);
+    tree.update(world);
     lastUi = now;
   }
   requestAnimationFrame(frame);

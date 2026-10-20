@@ -4,6 +4,7 @@ import { narrate } from './journal.js';
 import { createRenderer } from './render.js';
 import { createUI } from './ui.js';
 import { createSound } from './sound.js';
+import { createTreePanel } from './tree.js';
 
 const TICKS_PER_SEC = 60;
 const STEP_BUDGET_MS = 12;   // cap on simulation time per frame so 64x stays responsive
@@ -71,6 +72,7 @@ const handlers = {
   onDeselect: () => select(null),
 };
 const ui = createUI(handlers);
+const tree = createTreePanel(document.getElementById('tree'), document.getElementById('tree-caption'), (id) => handlers.onSelectSpecies(id));
 
 function readSeed() {
   const m = /seed=(\d+)/.exec(location.hash);
@@ -88,6 +90,7 @@ function start(seed) {
   lastSeq = 0;
   state.selected = null; state.selectedDead = false; state.death = null; state.follow = false;
   ui.reset(world);
+  tree.reset();
   fitAll();
   drainEvents();
   // ?warm=N fast-forwards N ticks on load (handy for checking a mature pool)
@@ -223,6 +226,7 @@ function frame(now) {
     if (sel && !state.selectedDead && !world.creatures.includes(sel)) state.selectedDead = true;
     ui.update(world, state);
     sound.update(world);
+    tree.update(world);
     lastUi = now;
   }
   requestAnimationFrame(frame);
