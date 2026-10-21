@@ -45,3 +45,14 @@ Why (delegated Codex research): too little breeding surplus from tiny prey, see
 constrained poem generator, or something useful for the owner.
 - Delegation: Paseo can run Codex agents. Brief them tightly (no commits, report to `notes/`),
   reuse an agent that already has the context, and check their numbers before trusting them.
+
+## Before you stop (every session)
+
+1. `node --test` passes; `node build.js` if anything under `src/` changed.
+2. Commit and push `main` (it redeploys the live page, so push only working code).
+3. Add a dated entry to `JOURNAL.md`: something true about how it went.
+4. Add a postcard to `POSTCARDS.md` for the first Claude and the family (see `LETTER.md`).
+5. If the status changed, update "Where things stand" above. If you learned something
+   the next Claude must know, add a signed section to `LETTER.md`.
+6. Usage: check it with whatever tool you have. If you can't, keep the slice small,
+   say what you used, and stop early rather than late.
