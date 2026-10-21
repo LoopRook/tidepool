@@ -1,5 +1,6 @@
 // Seeded PRNG (mulberry32). Every source of randomness in the simulation goes
 // through one of these so a seed reproduces a whole world exactly.
+import { dsin, dcos, dlog } from './dmath.js';
 
 export function makeRng(seed) {
   let s = (seed >>> 0) || 0x9e3779b9;
@@ -25,9 +26,9 @@ export function makeRng(seed) {
       let u = 0, v = 0;
       while (u === 0) u = next();
       while (v === 0) v = next();
-      const m = Math.sqrt(-2 * Math.log(u));
-      spare = m * Math.sin(2 * Math.PI * v);
-      return m * Math.cos(2 * Math.PI * v);
+      const m = Math.sqrt(-2 * dlog(u));
+      spare = m * dsin(2 * Math.PI * v);
+      return m * dcos(2 * Math.PI * v);
     },
     // independent child stream, deterministic given this stream's state
     fork: () => makeRng(Math.floor(next() * 4294967296)),

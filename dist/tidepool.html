@@ -299,6 +299,7 @@ body {
       <button type="button" id="btn-follow" class="btn toggle" aria-pressed="false" title="Keep the selected creature centred (F)">Follow</button>
       <button type="button" id="btn-fit" class="btn" title="Show the whole pool (0)">Fit</button>
       <button type="button" id="btn-sound" class="btn toggle" aria-pressed="false" title="Let the pool make sound (M)">Sound</button>
+      <button type="button" id="btn-share" class="btn" title="Copy a link to this exact moment (S)">Share</button>
       <button type="button" id="btn-seed" class="btn" title="Start a new pool with a fresh seed (N)">New seed</button>
     </div>
   </header>
@@ -334,8 +335,122 @@ body {
 <script>
 (() => {
 'use strict';
-const __m2 = (() => {
+const __m3 = (() => {
 
+// Deterministic maths for the simulation. JavaScript only promises exact results for
+// + - * / and sqrt; Math.sin, cos, atan2, log, exp and tanh may differ in the last bit
+// between engines, and a chaotic pool turns one bit into a different world. These
+// use nothing but exact operations, so a seed replays identically in every browser.
+// Accurate to ~1e-15, plenty for fish.
+
+const PI = Math.PI, TAU = 2 * Math.PI, HALF_PI = Math.PI / 2;
+const LN2 = 0.6931471805599453;
+
+// Taylor series on [-pi/4, pi/4]; terms up to x^17 leave error below 1e-16.
+function sinCore(x) {
+  const x2 = x * x;
+  let t = x, s = x;
+  for (let k = 2; k <= 16; k += 2) { t *= -x2 / (k * (k + 1)); s += t; }
+  return s;
+}
+function cosCore(x) {
+  const x2 = x * x;
+  let t = 1, s = 1;
+  for (let k = 1; k <= 15; k += 2) { t *= -x2 / (k * (k + 1)); s += t; }
+  return s;
+}
+
+// Reduce to [-pi, pi], then to an octant around 0, +-pi/2 or pi.
+function octant(x) {
+  x -= TAU * Math.round(x / TAU);
+  const q = Math.round(x / HALF_PI); // -2..2
+  return [q, x - q * HALF_PI];
+}
+
+function dsin(x) {
+  const [q, r] = octant(x);
+  switch (q) {
+    case 0: return sinCore(r);
+    case 1: return cosCore(r);
+    case -1: return -cosCore(r);
+    default: return -sinCore(r); // +-2: sin(r +- pi) = -sin r
+  }
+}
+
+function dcos(x) {
+  const [q, r] = octant(x);
+  switch (q) {
+    case 0: return cosCore(r);
+    case 1: return -sinCore(r);
+    case -1: return sinCore(r);
+    default: return -cosCore(r);
+  }
+}
+
+// atan on [0, 1]: halve the angle once (|z| <= tan(pi/8) ~ 0.414), then the series.
+function atanUnit(x) {
+  const z = x / (1 + Math.sqrt(1 + x * x));
+  const z2 = z * z;
+  let t = z, s = z;
+  for (let k = 3; k <= 41; k += 2) { t *= -z2; s += t / k; }
+  return 2 * s;
+}
+
+function datan2(y, x) {
+  if (x === 0 && y === 0) return 0;
+  const ax = Math.abs(x), ay = Math.abs(y);
+  let a = ay <= ax ? atanUnit(ay / ax) : HALF_PI - atanUnit(ax / ay);
+  if (x < 0) a = PI - a;
+  return y < 0 ? -a : a;
+}
+
+function dlog(x) {
+  if (!(x > 0)) return x === 0 ? -Infinity : NaN;
+  if (x === Infinity) return Infinity;
+  // x = m * 2^e with m in [0.75, 1.5); scaling by 2 is exact.
+  let e = 0;
+  while (x >= 1.5) { x *= 0.5; e++; }
+  while (x < 0.75) { x *= 2; e--; }
+  // log m = 2 atanh(z), z = (m - 1) / (m + 1), |z| <= 0.2
+  const z = (x - 1) / (x + 1), z2 = z * z;
+  let t = z, s = z;
+  for (let k = 3; k <= 31; k += 2) { t *= z2; s += t / k; }
+  return 2 * s + e * LN2;
+}
+
+function dexp(x) {
+  if (x > 709) return Infinity;
+  if (x < -745) return 0;
+  const k = Math.round(x / LN2);
+  const r = x - k * LN2; // |r| <= ~0.35
+  let t = 1, s = 1;
+  for (let n = 1; n <= 20; n++) { t *= r / n; s += t; }
+  // times 2^k, one exact doubling or halving at a time (|k| stays small here)
+  for (let p = k; p > 0; p--) s *= 2;
+  for (let p = k; p < 0; p++) s *= 0.5;
+  return s;
+}
+
+function dtanh(x) {
+  if (x > 20) return 1;
+  if (x < -20) return -1;
+  const e = dexp(2 * x);
+  return (e - 1) / (e + 1);
+}
+
+// x^y for x >= 0
+function dpow(x, y) {
+  if (x === 0) return y > 0 ? 0 : y === 0 ? 1 : Infinity;
+  if (y === 1) return x;
+  if (y === 1.5) return x * Math.sqrt(x);
+  return dexp(y * dlog(x));
+}
+
+return { dsin, dcos, datan2, dlog, dexp, dtanh, dpow };
+})();
+
+const __m2 = (() => {
+const { dsin, dcos, dlog } = __m3;
 // Seeded PRNG (mulberry32). Every source of randomness in the simulation goes
 // through one of these so a seed reproduces a whole world exactly.
 
@@ -363,9 +478,9 @@ function makeRng(seed) {
       let u = 0, v = 0;
       while (u === 0) u = next();
       while (v === 0) v = next();
-      const m = Math.sqrt(-2 * Math.log(u));
-      spare = m * Math.sin(2 * Math.PI * v);
-      return m * Math.cos(2 * Math.PI * v);
+      const m = Math.sqrt(-2 * dlog(u));
+      spare = m * dsin(2 * Math.PI * v);
+      return m * dcos(2 * Math.PI * v);
     },
     // independent child stream, deterministic given this stream's state
     fork: () => makeRng(Math.floor(next() * 4294967296)),
@@ -376,8 +491,8 @@ function makeRng(seed) {
 return { makeRng };
 })();
 
-const __m4 = (() => {
-
+const __m5 = (() => {
+const { dtanh } = __m3;
 // Tiny feed-forward brain: inputs -> tanh hidden layer -> 3 outputs.
 // Weight layout (flat array, so genomes stay JSON-friendly):
 //   [0, H*I)            input->hidden, hidden j uses w[j*I + i] (the `bias` input is the hidden bias)
@@ -422,14 +537,14 @@ function makeBrain(weights) {
         let s = 0;
         const base = j * NI;
         for (let i = 0; i < NI; i++) s += w[base + i] * inputs[i];
-        h[j] = Math.tanh(s);
+        h[j] = dtanh(s);
       }
       for (let o = 0; o < NO; o++) {
         const base = OUT_BASE + o * (HIDDEN + 1);
         let s = w[base + HIDDEN];
         for (let j = 0; j < HIDDEN; j++) s += w[base + j] * h[j];
         // turn is signed; thrust and bite are squashed into [0, 1]
-        out[o] = o === 0 ? Math.tanh(s) : 0.5 + 0.5 * Math.tanh(s);
+        out[o] = o === 0 ? dtanh(s) : 0.5 + 0.5 * dtanh(s);
       }
       return out;
     },
@@ -439,8 +554,8 @@ function makeBrain(weights) {
 return { INPUTS, OUTPUTS, HIDDEN, weightCount, hiddenWeightIndex, outputWeightIndex, makeBrain };
 })();
 
-const __m3 = (() => {
-const { weightCount, hiddenWeightIndex, outputWeightIndex, INPUTS, HIDDEN } = __m4;
+const __m4 = (() => {
+const { weightCount, hiddenWeightIndex, outputWeightIndex, INPUTS, HIDDEN } = __m5;
 // Genome = visible/body traits in [0,1] + brain weights. Phenotype is derived
 // deterministically, so the genome is the only thing that needs to be stored.
 const TRAITS = [
@@ -597,10 +712,13 @@ function express(genome) {
 return { TRAITS, PATTERN_NAMES, randomGenome, mutate, crossover, distance, express };
 })();
 
-const __m5 = (() => {
-const { distance } = __m3;
+const __m6 = (() => {
+const { distance } = __m4;
+const { dpow } = __m3;
 // Species registry and procedural naming. A species is just a founder genome;
 // newborns join their parent's species unless they have drifted too far.
+
+
 const SPECIES_THRESHOLD = 0.12;
 
 // ---------- Latin adjective helpers (feminine / masculine / neuter) ----------
@@ -754,8 +872,8 @@ function colourOf(rng, hue, sat, light) {
 
 // Full name with grammatical gender kept, for the registry's collision handling.
 function makeName(rng, p) {
-  const feature = weightedPick(rng, bodyFeatures(p).map(([k, s]) => [k, Math.pow(Math.max(s, 0.01), 1.5)]));
-  const group = weightedPick(rng, suffixGroups(p).map(([k, s]) => [k, Math.pow(Math.max(s, 0.01), 1.5)]));
+  const feature = weightedPick(rng, bodyFeatures(p).map(([k, s]) => [k, dpow(Math.max(s, 0.01), 1.5)]));
+  const group = weightedPick(rng, suffixGroups(p).map(([k, s]) => [k, dpow(Math.max(s, 0.01), 1.5)]));
   const F = FEATURES[feature];
   const S = SUFFIXES[group];
 
@@ -924,11 +1042,13 @@ return { SPECIES_THRESHOLD, binomialName, createRegistry };
 
 const __m1 = (() => {
 const { makeRng } = __m2;
-const { randomGenome, mutate, crossover, distance, express } = __m3;
-const { makeBrain, INPUTS } = __m4;
-const { createRegistry, SPECIES_THRESHOLD } = __m5;
+const { randomGenome, mutate, crossover, distance, express } = __m4;
+const { makeBrain, INPUTS } = __m5;
+const { createRegistry, SPECIES_THRESHOLD } = __m6;
+const { dsin, dcos, datan2, dpow } = __m3;
 // The tide pool simulation: sensing, thinking, swimming, eating, breeding, dying.
 // Everything here is deterministic given the seed (all randomness via world.rng).
+
 
 
 
@@ -1027,8 +1147,8 @@ function sproutAlgae(world) {
   if (world.lights.length && rng.next() < ECOLOGY.lightShare) {
     const L = world.lights[rng.int(world.lights.length)];
     const a = rng.next() * TAU, d = Math.sqrt(rng.next()) * L.r;
-    x = L.x + Math.cos(a) * d;
-    y = L.y + Math.sin(a) * d;
+    x = L.x + dcos(a) * d;
+    y = L.y + dsin(a) * d;
     if (x < 2 || x > width - 2 || y < 2 || y > height - 2) return;
   } else {
     x = rng.range(2, width - 2);
@@ -1045,7 +1165,7 @@ function makeLights(world) {
     const a = rng.next() * TAU, s = rng.range(0.12, 0.3);
     world.lights.push({
       x: rng.range(r, width - r), y: rng.range(r, height - r), r,
-      vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+      vx: dcos(a) * s, vy: dsin(a) * s,
     });
   }
 }
@@ -1217,7 +1337,7 @@ function census(world) {
 }
 
 function relAngle(dx, dy, heading) {
-  let a = Math.atan2(dy, dx) - heading;
+  let a = datan2(dy, dx) - heading;
   a -= TAU * Math.floor((a + Math.PI) / TAU);
   return a / Math.PI;
 }
@@ -1291,7 +1411,7 @@ function sense(world, c, inp, out) {
   const wd = Math.min(x, y, world.width - x, world.height - y);
   const w = 1 - wd / R;
   inp[9] = w < 0 ? 0 : w > 1 ? 1 : w;
-  inp[10] = Math.sin(c.age * 0.05);
+  inp[10] = dsin(c.age * 0.05);
   inp[11] = 1;
   out.kin = kin;
 }
@@ -1301,7 +1421,7 @@ function graze(world, c) {
   const r = c.pheno.radius + 2;
   // Small mouths waste part of each pellet; without this, tiny fast breeders always win.
   const mouth = Math.min(ECOLOGY.mouthMax, ECOLOGY.mouthBase + ECOLOGY.mouthPerRadius * c.pheno.radius);
-  const eff = Math.pow(1 - c.pheno.diet, ECOLOGY.grazeExponent) * mouth;
+  const eff = dpow(1 - c.pheno.diet, ECOLOGY.grazeExponent) * mouth;
   const x0 = g.cx(c.x - r), x1 = g.cx(c.x + r), y0 = g.cy(c.y - r), y1 = g.cy(c.y + r);
   for (let gy = y0; gy <= y1; gy++) {
     for (let gx = x0; gx <= x1; gx++) {
@@ -1365,7 +1485,7 @@ function reproduce(world, c, kin) {
     g = mutate(g, rng, ECOLOGY.mutationStrength);
     const a = c.angle + Math.PI + rng.range(-1, 1);
     const d = p.radius * 1.5;
-    const child = spawnCreature(world, g, c.x + Math.cos(a) * d, c.y + Math.sin(a) * d, c);
+    const child = spawnCreature(world, g, c.x + dcos(a) * d, c.y + dsin(a) * d, c);
     child.energy = Math.min(child.pheno.maxEnergy, each);
     child.angle = a;
   }
@@ -1399,8 +1519,8 @@ function step(world) {
 
     c.angle += turn * p.turnRate;
     c.speed += (thrust * p.maxSpeed - c.speed) * 0.3;
-    c.x += Math.cos(c.angle) * c.speed;
-    c.y += Math.sin(c.angle) * c.speed;
+    c.x += dcos(c.angle) * c.speed;
+    c.y += dsin(c.angle) * c.speed;
     const r = p.radius;
     if (c.x < r) { c.x = r; c.angle = Math.PI - c.angle; }
     else if (c.x > world.width - r) { c.x = world.width - r; c.angle = Math.PI - c.angle; }
@@ -1451,7 +1571,7 @@ function findCreatureAt(world, x, y, slop = 6) {
 return { DAY, ECOLOGY, bodyRadius, spawnCreature, createWorld, step, findCreatureAt };
 })();
 
-const __m6 = (() => {
+const __m7 = (() => {
 
 // The naturalist's notebook: turns simulation events into short journal lines.
 // Phrasing is chosen by hashing the event, never by rng, so narrating an event
@@ -1935,7 +2055,7 @@ function narrate(event, world) {
 return { narrate };
 })();
 
-const __m7 = (() => {
+const __m8 = (() => {
 const { bodyRadius } = __m1;
 // Canvas renderer for the pool.
 // View = { scale, ox, oy }: screen (CSS px) = (world - o) * scale, so (ox, oy) is
@@ -2485,10 +2605,10 @@ function createRenderer(canvas) {
 return { drawPortrait, createRenderer };
 })();
 
-const __m8 = (() => {
-const { drawPortrait } = __m7;
-const { express } = __m3;
-const { INPUTS, OUTPUTS, HIDDEN } = __m4;
+const __m9 = (() => {
+const { drawPortrait } = __m8;
+const { express } = __m4;
+const { INPUTS, OUTPUTS, HIDDEN } = __m5;
 const { DAY } = __m1;
 // Side panels and controls: plain DOM, updated a few times a second by main.js.
 
@@ -2986,7 +3106,7 @@ function createUI(handlers) {
 return { createUI };
 })();
 
-const __m9 = (() => {
+const __m10 = (() => {
 
 // The pool's voice. Browser-only (Web Audio); created lazily on the first user
 // gesture because browsers refuse to start audio before one.
@@ -3118,7 +3238,7 @@ function createSound() {
 return { speciesPitch, createSound };
 })();
 
-const __m11 = (() => {
+const __m12 = (() => {
 
 // Tree-of-life layout. Pure: species list in, rows out.
 //
@@ -3172,8 +3292,8 @@ function layoutPhylogeny(species, tick, options = {}) {
 return { isNotable, layoutPhylogeny };
 })();
 
-const __m10 = (() => {
-const { layoutPhylogeny } = __m11;
+const __m11 = (() => {
+const { layoutPhylogeny } = __m12;
 // Tree-of-life panel: draws layoutPhylogeny() on a canvas, with hover captions
 // and click-to-follow for living species.
 
@@ -3257,11 +3377,11 @@ return { createTreePanel };
 
 const __m0 = (() => {
 const { createWorld, step, findCreatureAt } = __m1;
-const { narrate } = __m6;
-const { createRenderer } = __m7;
-const { createUI } = __m8;
-const { createSound } = __m9;
-const { createTreePanel } = __m10;
+const { narrate } = __m7;
+const { createRenderer } = __m8;
+const { createUI } = __m9;
+const { createSound } = __m10;
+const { createTreePanel } = __m11;
 // Browser entry: builds the world from #seed=N, runs the loop, handles input.
 
 
@@ -3274,6 +3394,8 @@ const STEP_BUDGET_MS = 12;   // cap on simulation time per frame so 64x stays re
 const UI_INTERVAL_MS = 150;  // panels refresh ~6-7 times a second; the canvas every frame
 const MAX_SCALE = 14;
 const SPEEDS = [1, 4, 16, 64];
+const REWIND_MS = 30;        // per-frame budget while replaying a shared moment
+const REWIND_MAX = 300000;   // ~500 days; links past this are clamped
 
 const canvas = document.getElementById('pool');
 const hint = document.getElementById('hint');
@@ -3288,6 +3410,7 @@ const state = {
   death: null,          // { cause, killerSpecies } for the selected creature, from events
   effSpeed: 1,
   wasFollowing: false,  // so picking a kin after a death resumes following
+  rewind: null,         // { to, fish } while replaying a shared moment
 };
 
 let world = null;
@@ -3342,6 +3465,54 @@ function readSeed() {
   return m ? Number(m[1]) >>> 0 : null;
 }
 
+// A shared moment: #seed=7&t=20000&fish=123. The pool is deterministic, so replaying
+// the seed to tick t recreates exactly what the sender saw.
+function readMoment() {
+  const t = /[#&]t=(\d+)/.exec(location.hash), f = /[#&]fish=(\d+)/.exec(location.hash);
+  return { t: t ? Math.min(REWIND_MAX, Number(t[1])) : 0, fish: f ? Number(f[1]) : null };
+}
+
+function momentUrl() {
+  let h = `#seed=${world.seed}&t=${world.tick}`;
+  if (state.selected && !state.selectedDead) h += `&fish=${state.selected.id}`;
+  return location.origin + location.pathname + h;
+}
+
+const btnShare = document.getElementById('btn-share');
+async function share() {
+  if (!world || state.rewind) return;
+  const url = momentUrl();
+  let ok = false;
+  try { await navigator.clipboard.writeText(url); ok = true; } catch { ok = false; }
+  if (!ok) window.prompt('Copy this link to share the moment:', url);
+  btnShare.textContent = ok ? 'Link copied' : 'Share';
+  clearTimeout(share.timer);
+  share.timer = setTimeout(() => { btnShare.textContent = 'Share'; }, 1800);
+}
+btnShare.addEventListener('click', share);
+
+function showHint(text) {
+  hint.textContent = text;
+  hint.classList.remove('gone');
+}
+
+function rewindStep() {
+  const r = state.rewind;
+  const t0 = performance.now();
+  while (world.tick < r.to && performance.now() - t0 < REWIND_MS) { step(world); drainEvents(); }
+  if (world.tick < r.to) {
+    const day = (t) => Math.floor(t / 600) + 1;
+    showHint(`Replaying the tide to this moment · day ${day(world.tick)} of ${day(r.to)}`);
+    return;
+  }
+  state.rewind = null;
+  setPaused(true);
+  const fish = r.fish != null ? world.creatures.find((c) => c.id === r.fish) : null;
+  if (fish) { select(fish); setFollow(true); zoomTarget = Math.max(view.scale, (minScale / 0.6) * 2.5); }
+  showHint(fish ? 'Here is the fish you were sent. Space to let the pool go on.' : 'Here is the moment you were sent. Space to let the pool go on.');
+  setTimeout(dismissHint, 7000);
+}
+
 function randomSeed() {
   const a = new Uint32Array(1);
   crypto.getRandomValues(a);
@@ -3359,6 +3530,8 @@ function start(seed) {
   // ?warm=N fast-forwards N ticks on load (handy for checking a mature pool)
   const warm = Math.min(200000, Number(new URLSearchParams(location.search).get('warm')) || 0);
   for (let i = 0; i < warm; i++) { step(world); drainEvents(); }
+  const m = readMoment();
+  state.rewind = m.t > world.tick ? { to: m.t, fish: m.fish } : null;
   ui.setControls(state);
   ui.update(world, state);
 }
@@ -3369,7 +3542,7 @@ function newSeed() {
 
 window.addEventListener('hashchange', () => {
   const s = readSeed();
-  if (s != null && (!world || s !== world.seed)) start(s);
+  if (s != null && (!world || s !== world.seed || readMoment().t)) start(s);
 });
 
 function fitAll() {
@@ -3446,7 +3619,8 @@ function frame(now) {
   const dt = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 1 / 60;
   lastFrame = now;
 
-  if (!state.paused) {
+  if (state.rewind) rewindStep();
+  else if (!state.paused) {
     acc += dt * TICKS_PER_SEC * state.speed;
     const t0 = performance.now();
     while (acc >= 1) {
@@ -3599,6 +3773,8 @@ window.addEventListener('keydown', (e) => {
     toggleSound();
   } else if (k === 'f' || k === 'F') {
     setFollow(!state.follow);
+  } else if (k === 's' || k === 'S') {
+    share();
   } else if (k === 'n' || k === 'N') {
     newSeed();
   } else if (k === '0') {

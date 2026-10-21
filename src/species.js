@@ -1,6 +1,7 @@
 // Species registry and procedural naming. A species is just a founder genome;
 // newborns join their parent's species unless they have drifted too far.
 import { distance } from './genome.js';
+import { dpow } from './dmath.js';
 
 export const SPECIES_THRESHOLD = 0.12;
 
@@ -155,8 +156,8 @@ function colourOf(rng, hue, sat, light) {
 
 // Full name with grammatical gender kept, for the registry's collision handling.
 function makeName(rng, p) {
-  const feature = weightedPick(rng, bodyFeatures(p).map(([k, s]) => [k, Math.pow(Math.max(s, 0.01), 1.5)]));
-  const group = weightedPick(rng, suffixGroups(p).map(([k, s]) => [k, Math.pow(Math.max(s, 0.01), 1.5)]));
+  const feature = weightedPick(rng, bodyFeatures(p).map(([k, s]) => [k, dpow(Math.max(s, 0.01), 1.5)]));
+  const group = weightedPick(rng, suffixGroups(p).map(([k, s]) => [k, dpow(Math.max(s, 0.01), 1.5)]));
   const F = FEATURES[feature];
   const S = SUFFIXES[group];
 

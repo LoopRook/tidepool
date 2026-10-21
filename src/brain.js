@@ -2,6 +2,7 @@
 // Weight layout (flat array, so genomes stay JSON-friendly):
 //   [0, H*I)            input->hidden, hidden j uses w[j*I + i] (the `bias` input is the hidden bias)
 //   [H*I, H*I + O*(H+1)) hidden->output, output o uses w[H*I + o*(H+1) + j], j = H is its bias
+import { dtanh } from './dmath.js';
 
 export const INPUTS = [
   'foodAngle', 'foodDist',
@@ -42,14 +43,14 @@ export function makeBrain(weights) {
         let s = 0;
         const base = j * NI;
         for (let i = 0; i < NI; i++) s += w[base + i] * inputs[i];
-        h[j] = Math.tanh(s);
+        h[j] = dtanh(s);
       }
       for (let o = 0; o < NO; o++) {
         const base = OUT_BASE + o * (HIDDEN + 1);
         let s = w[base + HIDDEN];
         for (let j = 0; j < HIDDEN; j++) s += w[base + j] * h[j];
         // turn is signed; thrust and bite are squashed into [0, 1]
-        out[o] = o === 0 ? Math.tanh(s) : 0.5 + 0.5 * Math.tanh(s);
+        out[o] = o === 0 ? dtanh(s) : 0.5 + 0.5 * dtanh(s);
       }
       return out;
     },

@@ -37,7 +37,10 @@ want … this is all about you, or us." What to work on is Claude's choice.
 ## Where things stand (2026-10-20)
 
 Playable with sound (M), field guide, tree of life, journal, inspector with live brain.
-Hunters persist 150+ days on seeds 1-4 and 6. Open: seed 5's grazers shrink to minnows
-too nimble for hunters. Ideas Claude has floated: a "share this pool" link capturing a
-moment, a generative music piece, a constrained poem generator, or something useful
-for the owner.
+Share links (S) replay an exact moment in any browser, thanks to `src/dmath.js`.
+Hunters persist 150 days on seeds 2-4 and 6; seeds 1 and 5 lose them near day 110.
+Why (delegated Codex research): too little breeding surplus from tiny prey, see
+`notes/seed5-codex.md`. Ideas Claude has floated: a generative music piece, a
+constrained poem generator, or something useful for the owner.
+- Delegation: Paseo can run Codex agents. Brief them tightly (no commits, report to `notes/`),
+  reuse an agent that already has the context, and check their numbers before trusting them.

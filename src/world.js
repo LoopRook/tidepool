@@ -4,6 +4,7 @@ import { makeRng } from './rng.js';
 import { randomGenome, mutate, crossover, distance, express } from './genome.js';
 import { makeBrain, INPUTS } from './brain.js';
 import { createRegistry, SPECIES_THRESHOLD } from './species.js';
+import { dsin, dcos, datan2, dpow } from './dmath.js';
 
 export const DAY = 600;
 
@@ -99,8 +100,8 @@ function sproutAlgae(world) {
   if (world.lights.length && rng.next() < ECOLOGY.lightShare) {
     const L = world.lights[rng.int(world.lights.length)];
     const a = rng.next() * TAU, d = Math.sqrt(rng.next()) * L.r;
-    x = L.x + Math.cos(a) * d;
-    y = L.y + Math.sin(a) * d;
+    x = L.x + dcos(a) * d;
+    y = L.y + dsin(a) * d;
     if (x < 2 || x > width - 2 || y < 2 || y > height - 2) return;
   } else {
     x = rng.range(2, width - 2);
@@ -117,7 +118,7 @@ function makeLights(world) {
     const a = rng.next() * TAU, s = rng.range(0.12, 0.3);
     world.lights.push({
       x: rng.range(r, width - r), y: rng.range(r, height - r), r,
-      vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+      vx: dcos(a) * s, vy: dsin(a) * s,
     });
   }
 }
@@ -289,7 +290,7 @@ function census(world) {
 }
 
 function relAngle(dx, dy, heading) {
-  let a = Math.atan2(dy, dx) - heading;
+  let a = datan2(dy, dx) - heading;
   a -= TAU * Math.floor((a + Math.PI) / TAU);
   return a / Math.PI;
 }
@@ -363,7 +364,7 @@ function sense(world, c, inp, out) {
   const wd = Math.min(x, y, world.width - x, world.height - y);
   const w = 1 - wd / R;
   inp[9] = w < 0 ? 0 : w > 1 ? 1 : w;
-  inp[10] = Math.sin(c.age * 0.05);
+  inp[10] = dsin(c.age * 0.05);
   inp[11] = 1;
   out.kin = kin;
 }
@@ -373,7 +374,7 @@ function graze(world, c) {
   const r = c.pheno.radius + 2;
   // Small mouths waste part of each pellet; without this, tiny fast breeders always win.
   const mouth = Math.min(ECOLOGY.mouthMax, ECOLOGY.mouthBase + ECOLOGY.mouthPerRadius * c.pheno.radius);
-  const eff = Math.pow(1 - c.pheno.diet, ECOLOGY.grazeExponent) * mouth;
+  const eff = dpow(1 - c.pheno.diet, ECOLOGY.grazeExponent) * mouth;
   const x0 = g.cx(c.x - r), x1 = g.cx(c.x + r), y0 = g.cy(c.y - r), y1 = g.cy(c.y + r);
   for (let gy = y0; gy <= y1; gy++) {
     for (let gx = x0; gx <= x1; gx++) {
@@ -437,7 +438,7 @@ function reproduce(world, c, kin) {
     g = mutate(g, rng, ECOLOGY.mutationStrength);
     const a = c.angle + Math.PI + rng.range(-1, 1);
     const d = p.radius * 1.5;
-    const child = spawnCreature(world, g, c.x + Math.cos(a) * d, c.y + Math.sin(a) * d, c);
+    const child = spawnCreature(world, g, c.x + dcos(a) * d, c.y + dsin(a) * d, c);
     child.energy = Math.min(child.pheno.maxEnergy, each);
     child.angle = a;
   }
@@ -471,8 +472,8 @@ export function step(world) {
 
     c.angle += turn * p.turnRate;
     c.speed += (thrust * p.maxSpeed - c.speed) * 0.3;
-    c.x += Math.cos(c.angle) * c.speed;
-    c.y += Math.sin(c.angle) * c.speed;
+    c.x += dcos(c.angle) * c.speed;
+    c.y += dsin(c.angle) * c.speed;
     const r = p.radius;
     if (c.x < r) { c.x = r; c.angle = Math.PI - c.angle; }
     else if (c.x > world.width - r) { c.x = world.width - r; c.angle = Math.PI - c.angle; }

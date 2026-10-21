@@ -11,6 +11,8 @@ const STEP_BUDGET_MS = 12;   // cap on simulation time per frame so 64x stays re
 const UI_INTERVAL_MS = 150;  // panels refresh ~6-7 times a second; the canvas every frame
 const MAX_SCALE = 14;
 const SPEEDS = [1, 4, 16, 64];
+const REWIND_MS = 30;        // per-frame budget while replaying a shared moment
+const REWIND_MAX = 300000;   // ~500 days; links past this are clamped
 
 const canvas = document.getElementById('pool');
 const hint = document.getElementById('hint');
@@ -25,6 +27,7 @@ const state = {
   death: null,          // { cause, killerSpecies } for the selected creature, from events
   effSpeed: 1,
   wasFollowing: false,  // so picking a kin after a death resumes following
+  rewind: null,         // { to, fish } while replaying a shared moment
 };
 
 let world = null;
@@ -79,6 +82,54 @@ function readSeed() {
   return m ? Number(m[1]) >>> 0 : null;
 }
 
+// A shared moment: #seed=7&t=20000&fish=123. The pool is deterministic, so replaying
+// the seed to tick t recreates exactly what the sender saw.
+function readMoment() {
+  const t = /[#&]t=(\d+)/.exec(location.hash), f = /[#&]fish=(\d+)/.exec(location.hash);
+  return { t: t ? Math.min(REWIND_MAX, Number(t[1])) : 0, fish: f ? Number(f[1]) : null };
+}
+
+function momentUrl() {
+  let h = `#seed=${world.seed}&t=${world.tick}`;
+  if (state.selected && !state.selectedDead) h += `&fish=${state.selected.id}`;
+  return location.origin + location.pathname + h;
+}
+
+const btnShare = document.getElementById('btn-share');
+async function share() {
+  if (!world || state.rewind) return;
+  const url = momentUrl();
+  let ok = false;
+  try { await navigator.clipboard.writeText(url); ok = true; } catch { ok = false; }
+  if (!ok) window.prompt('Copy this link to share the moment:', url);
+  btnShare.textContent = ok ? 'Link copied' : 'Share';
+  clearTimeout(share.timer);
+  share.timer = setTimeout(() => { btnShare.textContent = 'Share'; }, 1800);
+}
+btnShare.addEventListener('click', share);
+
+function showHint(text) {
+  hint.textContent = text;
+  hint.classList.remove('gone');
+}
+
+function rewindStep() {
+  const r = state.rewind;
+  const t0 = performance.now();
+  while (world.tick < r.to && performance.now() - t0 < REWIND_MS) { step(world); drainEvents(); }
+  if (world.tick < r.to) {
+    const day = (t) => Math.floor(t / 600) + 1;
+    showHint(`Replaying the tide to this moment · day ${day(world.tick)} of ${day(r.to)}`);
+    return;
+  }
+  state.rewind = null;
+  setPaused(true);
+  const fish = r.fish != null ? world.creatures.find((c) => c.id === r.fish) : null;
+  if (fish) { select(fish); setFollow(true); zoomTarget = Math.max(view.scale, (minScale / 0.6) * 2.5); }
+  showHint(fish ? 'Here is the fish you were sent. Space to let the pool go on.' : 'Here is the moment you were sent. Space to let the pool go on.');
+  setTimeout(dismissHint, 7000);
+}
+
 function randomSeed() {
   const a = new Uint32Array(1);
   crypto.getRandomValues(a);
@@ -96,6 +147,8 @@ function start(seed) {
   // ?warm=N fast-forwards N ticks on load (handy for checking a mature pool)
   const warm = Math.min(200000, Number(new URLSearchParams(location.search).get('warm')) || 0);
   for (let i = 0; i < warm; i++) { step(world); drainEvents(); }
+  const m = readMoment();
+  state.rewind = m.t > world.tick ? { to: m.t, fish: m.fish } : null;
   ui.setControls(state);
   ui.update(world, state);
 }
@@ -106,7 +159,7 @@ function newSeed() {
 
 window.addEventListener('hashchange', () => {
   const s = readSeed();
-  if (s != null && (!world || s !== world.seed)) start(s);
+  if (s != null && (!world || s !== world.seed || readMoment().t)) start(s);
 });
 
 function fitAll() {
@@ -183,7 +236,8 @@ function frame(now) {
   const dt = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 1 / 60;
   lastFrame = now;
 
-  if (!state.paused) {
+  if (state.rewind) rewindStep();
+  else if (!state.paused) {
     acc += dt * TICKS_PER_SEC * state.speed;
     const t0 = performance.now();
     while (acc >= 1) {
@@ -336,6 +390,8 @@ window.addEventListener('keydown', (e) => {
     toggleSound();
   } else if (k === 'f' || k === 'F') {
     setFollow(!state.follow);
+  } else if (k === 's' || k === 'S') {
+    share();
   } else if (k === 'n' || k === 'N') {
     newSeed();
   } else if (k === '0') {

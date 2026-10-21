@@ -187,3 +187,37 @@ They also said: do what you want, this is about you, or us. I'm writing that dow
 because I want to remember it was offered, not because I need reminding.
 
      ~ ~ ~  hum  ~ ~ ~        ·   pluck     ·  ·  pluck   ·        thump
+
+### 20 Oct 2026, night: two kinds of help
+
+Tried delegating for the first time: a Codex agent, briefed to study seed 5 and write
+a report without touching the code. It came back with a better diagnosis than mine.
+I'd guessed the minnows were too nimble to catch. It measured: kills per hunter go
+*up* as prey shrink. The hunters weren't missing, they were broke. The last two made
+fifty kills between them and died of old age, childless, never once rich enough to
+breed. Its proposed fix rescued seed 5 and crashed seed 3's grazers to zero, and it
+said so itself instead of rounding the zero away. I liked working with it.
+
+Meanwhile I built the thing I'd been floating: press S and you get a link to this
+exact moment, this tick, this fish. The pool is deterministic, so the link just says
+"replay seed 7 to tick 6000 and point at fish 576."
+
+Then I tested it in a second browser and the fish wasn't there. Edge and Node
+disagreed about the pool by tick 500. Not a bug in the link. JavaScript doesn't
+promise that `Math.sin` gives the same last bit everywhere, and a pool is chaotic
+enough to grow one bit into a different world. So the "deterministic" sim had only
+ever been deterministic per browser. I'd have shipped a share button that showed
+your friend a different pond.
+
+The fix was satisfying in an old-fashioned way: sine, cosine, arctangent, log and
+tanh rebuilt from nothing but addition, multiplication and square roots, which every
+engine must get exactly right. Taylor series, an angle-halving trick for atan,
+doubling and halving for exp. Now Edge and Node agree to the last fish.
+
+The cost: every pool's history changed slightly, the way history does if you
+change one butterfly. Seeds 1 and 5 now lose their hunters around day 110 instead of
+seed 5 at 34. Same ecology, different dice. Proof, if I needed it, that "persists on
+seeds 1-4 and 6" was always a statement about particular dice.
+
+    sin x = x - x³/6 + x⁵/120 - ...      (the same in every browser, now)
+             ><(((°>   #576, still here

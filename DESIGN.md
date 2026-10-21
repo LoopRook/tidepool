@@ -21,6 +21,10 @@ of silently changing it.
     No default exports, no `export { ... }` lists, no `import * as`, no re-exports.
   - Don't reuse another module's exported names for your own top-level names.
 - All randomness comes from an `rng` passed in (see `src/rng.js`). Never call `Math.random()`.
+- Simulation code (world, brain, rng, genome, species) uses `src/dmath.js` instead of
+  `Math.sin/cos/atan2/log/exp/tanh/pow`, whose last bits differ between JS engines.
+  Only `+ - * /`, `sqrt`, `floor`/`round` and friends are exact everywhere. This is what
+  makes a seed (and a shared `#seed=S&t=T&fish=ID` link) replay identically in any browser.
 - Tests use `node:test` + `node:assert/strict`, live in `test/<module>.test.js`,
   run with `node --test` from the repo root. `package.json` has `"type": "module"`.
 - Comments: brief, explain *why*. No essays.

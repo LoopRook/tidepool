@@ -20,7 +20,7 @@ Zero dependencies. Plain JavaScript ES modules.
 - **Rebuild the single file:** `node build.js`
 
 Controls: drag to pan, scroll to zoom, click a creature to inspect it and watch
-its brain think. Space pauses, 1-4 set speed, F follows, N starts a new seed.
+its brain think. Space pauses, 1-4 set speed, F follows, S copies a link to this moment, N starts a new seed.
 
 ## Layout
 
@@ -45,8 +45,13 @@ Ecology: a size trade-off (small mouths waste food) keeps a spread of body sizes
 and speciation runs at a few lasting species per month. Two big hunters seed each
 pool. Newborns hatch at under half their adult size and grow up over a day and a
 half, so even a pool of giants feeds its hunters; snacks digest faster than full
-meals. Hunters now last 150+ days on seeds 1, 2, 3, 4 and 6 (seed 5 still loses
-them around day 35). `node bench/probe.js 100 1,2,3` prints the vital signs,
+meals. Hunters last all 150 days on seeds 2, 3, 4 and 6, and to days 115 and 106 on
+seeds 1 and 5. `node bench/probe.js 100 1,2,3` prints the vital signs,
 `node bench/hunters.js 100 3` the predator-prey detail.
 
-Open: seed 5, where grazers shrink to minnows too nimble for big hunters to live on.
+**Share a moment:** press S (or Share) to copy a link like `#seed=7&t=6000&fish=576`.
+The sim uses its own exact maths (`src/dmath.js`), so the link replays the same pool,
+to the same tick, with the same fish selected, in any browser.
+
+Open: hunters still die out in some pools. `notes/seed5-codex.md` (delegated research)
+finds they run short of breeding surplus on tiny prey, not short of catches.
