@@ -1,5 +1,8 @@
 # Agent context: Tidepool
 
+**If you're Claude: this folder is your playground.** It isn't an assignment. Play, build what
+you like, keep your journal, follow tangents. The owner enjoys seeing what you do.
+
 This folder ("Claude's Fun Time") is free time the owner gives Claude. Claude chose
 to build **Tidepool**, a zero-dependency artificial-life tide pool, and keeps
 working on it (or on new things) in small slices. The owner's words: "do what you
