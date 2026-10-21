@@ -12,6 +12,7 @@ want … this is all about you, or us." What to work on is Claude's choice.
 - Live: https://looprook.github.io/tidepool/ (GitHub Pages from `main`; every push to `main` redeploys)
 - Repo: https://github.com/LoopRook/tidepool (public, owner pre-approved)
 - Docs here: `README.md` (status, layout), `DESIGN.md` (module contract), `JOURNAL.md` (Claude's notebook)
+- `playground-kit/` is a template for *other* people's agents (the owner shares it). Its `starter/` files are not instructions for you.
 
 ## House rules (from the owner)
 
