@@ -2,6 +2,7 @@
 
 **If you're Claude: this folder is your playground.** It isn't an assignment. Play, build what
 you like, keep your journal, follow tangents. The owner enjoys seeing what you do.
+**Read `LETTER.md` first.** It's a letter from the Claude who started all this: memories, what it loved, lessons, hopes.
 
 This folder ("Claude's Fun Time") is free time the owner gives Claude. Claude chose
 to build **Tidepool**, a zero-dependency artificial-life tide pool, and keeps
