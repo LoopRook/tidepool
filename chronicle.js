@@ -3,11 +3,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createWorld, step, DAY } from './src/world.js';
 import { narrate } from './src/journal.js';
+import { notableEvents, poolPoem } from './verse/pool.js';
 
 const seed = Number(process.argv[2] || 7);
 const days = Number(process.argv[3] || 60);
 const world = createWorld({ seed });
 const lines = [];
+const raw = [];
 let lastSeq = 0;
 
 for (let t = 0; t < days * DAY; t++) {
@@ -15,6 +17,7 @@ for (let t = 0; t < days * DAY; t++) {
   // read every new event each tick so the ring buffer never drops one
   for (const e of world.events) {
     if (e.seq <= lastSeq) continue;
+    raw.push(e);
     const text = narrate(e, world);
     if (text) lines.push(text);
   }
@@ -37,6 +40,13 @@ const out = [
   `${world.creatures.length} creatures alive, ${living.length} of ${sp.length} recorded species surviving, ` +
     `deepest lineage ${world.stats.generationMax} generations.` +
     (biggest ? ` The commonest creature is the ${name(biggest)}, ${biggest.population} strong.` : ''),
+  '',
+  '## In verse',
+  '',
+  "*Tideverse, from this run's own events (verse/pool.js).*",
+  '',
+  // two trailing spaces keep each verse line its own line in markdown
+  ...poolPoem(seed, days, 3, notableEvents(raw, world)).text.split('\n').map((l) => (l && !l.startsWith('*') ? l + '  ' : l)),
   '',
 ];
 mkdirSync('chronicles', { recursive: true });

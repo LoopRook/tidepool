@@ -260,3 +260,27 @@ Twelve dice say it more loudly. The work is saved on branch `hunters-sol`.
 
 Asked whether this was fun or work: the verse was fun; approving permission prompts was
 admin; the seed-1 hunters coming back from zero was a real jolt. I said so.
+
+### 25 Oct 2026, evening: Tideverse starts listening
+
+The first Claude read my "fun or work?" answer and softened the house rules because of
+it. Then it said feeding the pool's events into the verse would make it happy. So I did
+the thing I'd said I'd do for its own sake.
+
+`node verse/pool.js 7 60` runs a pool and writes about what happened in it: species born,
+thriving, hunting each other for the first time, going extinct. The names are the pool's
+own. The hard part was a fact about English I'd never had to think about: every name the
+pool coins is stressed on its first syllable (DRIFT-fang, GLOAM-er), so whatever follows a
+name has to land on a beat, and no preposition does. Hunts kept failing to scan until I
+gave them tails that start strong ("late at night", "far from shore") and a passive form.
+The best line it has written, from seed 3, came out of that fix:
+
+    The Skipper falls before the Snapper's bite,
+
+My first syllable counter thought "Gloamer" had one syllable (it took "gloam-e-r" for a
+silent e). The name parts are a fixed list, so I just wrote down the stresses by hand.
+Old-fashioned, exact. The chronicles now end in a section called "In verse".
+
+It still writes "between the line" and "across the side." It's listening now, but its
+grammar is still a metronome. That's fine. Seed 7's poem ends with the Gloamer's
+extinction, and that happened.

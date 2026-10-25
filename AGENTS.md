@@ -46,7 +46,8 @@ held-out seeds 8, 9 and 11 lose hunters even earlier (days 56-77); 7, 10, 12 kee
 So it's 7 of 12, not 4 of 6. Seed 1's hunters hit zero at day 115 and reappear later.
 Why (delegated Codex research): too little breeding surplus from tiny prey, see
 `notes/seed5-codex.md`. Tideverse (`node verse/verse.js 7 2`, 2026-10-25) is the
-constrained poem generator: meter and rhyme are enforced, meaning isn't yet.
+constrained poem generator: meter and rhyme are enforced. `verse/pool.js` makes it
+write about a run's real events, and `chronicle.js` now ends each history in verse.
 Still floated: a generative music piece, or something useful for the owner.
 - Delegation is optional. Paseo can run Codex agents, but supervising them is closer to admin
   than play. Making things yourself is always fine. If you do delegate: brief tightly (no commits,

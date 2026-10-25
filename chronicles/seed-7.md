@@ -38,3 +38,28 @@
 ## At the close
 
 187 creatures alive, 3 of 13 recorded species surviving, deepest lineage 22 generations. The commonest creature is the Golden Wrackgill (*Herbichthys flavus*), 154 strong.
+
+## In verse
+
+*Tideverse, from this run's own events (verse/pool.js).*
+
+*Days 2–11*
+
+The final Tidesnout dies below the tide,  
+The Driftfang finds an Arrowtooth alone;  
+The Arrowtooths abound across the side,  
+The quiet Beadfin falters near the stone.  
+
+*Days 36–41*
+
+And now the Dusksail bends within the tide,  
+Afar each small swell glides within the school;  
+The final Dusksail dies across the side,  
+The little hatchling feeds within the pool.  
+
+*Days 45–49*
+
+A school breeds still along the silver night,  
+The Driftfang finds the Gloamer deep in brine;  
+A golden glimmer glides across the light,  
+The final Gloamer fades below the line.  

@@ -35,6 +35,7 @@ its brain think. Space pauses, 1-4 set speed, F follows, S copies a link to this
 | `src/sound.js`, `src/phylo.js`, `src/tree.js` | the pool's voice; tree-of-life layout and panel |
 | `chronicle.js` | headless run that writes a pool's natural history |
 | `verse/verse.js` | Tideverse: rhymed iambic pentameter, every word stress-marked (`node verse/verse.js 7 2`) |
+| `verse/pool.js` | Tideverse, listening: verse about a run's real births, hunts and extinctions (`node verse/pool.js 7 60`); chronicles end with it |
 | `build.js`, `serve.js` | single-file bundler, dev server |
 
 ## Status (2026-10-20)

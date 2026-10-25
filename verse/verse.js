@@ -79,7 +79,7 @@ export function scans(entries) {
   return at === METER.length;
 }
 
-function shuffled(arr, rng) {
+export function shuffled(arr, rng) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
     const j = rng.int(i + 1);
@@ -88,25 +88,31 @@ function shuffled(arr, rng) {
   return a;
 }
 
-const span = {};
-for (const [pos, list] of Object.entries(byPos)) {
-  const lens = list.map((e) => e.s.length);
-  span[pos] = [Math.min(...lens), Math.max(...lens)];
-}
+// A slot is a part-of-speech code or an explicit list of entries (for event lines).
+// A trailing "?" makes a slot optional ("A?" is an adjective or nothing).
+const NOTHING = { w: '', s: '', pos: 'F', r: null };
+const cands = (slot) => (typeof slot !== 'string' ? slot
+  : slot.endsWith('?') ? [NOTHING, ...byPos[slot.slice(0, -1)]] : byPos[slot]);
+const spanOf = (slot) => {
+  const lens = cands(slot).map((e) => e.s.length);
+  return [Math.min(...lens), Math.max(...lens)];
+};
+const EXEMPT = new Set(['D', 'T', 'P', 'C', 'F', 'Z']); // may repeat within a stanza
 
 // Fill one template so it scans and ends on the given rhyme (avoiding `used` words).
 // The rhyme word is placed first, at the end of the line; the rest is a search
 // pruned by how many syllables the remaining slots could possibly hold.
-function fill(template, rhyme, avoidEnd, used, rng) {
-  const fresh = (e) => e.pos === 'D' || e.pos === 'T' || e.pos === 'P' || e.pos === 'C' || !used.has(e.w);
-  const lastPos = template[template.length - 1];
-  const ends = byPos[lastPos].filter((e) => e.r === rhyme && e.w !== avoidEnd && fresh(e)
+export function fill(template, rhyme, avoidEnd, used, rng) {
+  const fresh = (e) => EXEMPT.has(e.pos) || !used.has(e.w);
+  const lastWord = (w) => w.split(' ').pop(); // "down the tide" ends on "tide"
+  const ends = cands(template[template.length - 1]).filter((e) => e.r === rhyme
+    && (!avoidEnd || lastWord(e.w) !== lastWord(avoidEnd)) && fresh(e)
     && fits(e.s, METER.length - e.s.length));
   const body = template.slice(0, -1);
   const minRest = [], maxRest = [];
   for (let i = body.length, lo = 0, hi = 0; i >= 0; i--) {
     minRest[i] = lo; maxRest[i] = hi;
-    if (i > 0) { lo += span[body[i - 1]][0]; hi += span[body[i - 1]][1]; }
+    if (i > 0) { const [a, b] = spanOf(body[i - 1]); lo += a; hi += b; }
   }
   for (const end of shuffled(ends, rng)) {
     const goal = METER.length - end.s.length;
@@ -114,8 +120,8 @@ function fill(template, rhyme, avoidEnd, used, rng) {
     const go = (slot, at) => {
       if (slot === body.length) return at === goal;
       if (at + minRest[slot] > goal || at + maxRest[slot] < goal) return false;
-      for (const e of shuffled(byPos[body[slot]], rng)) {
-        if (!fresh(e) || out.some((o) => o.w === e.w) || e.w === end.w || !fits(e.s, at)) continue;
+      for (const e of shuffled(cands(body[slot]), rng)) {
+        if (!fresh(e) || (!EXEMPT.has(e.pos) && (out.some((o) => o.w === e.w) || e.w === end.w)) || !fits(e.s, at)) continue;
         out.push(e);
         if (go(slot + 1, at + e.s.length)) return true;
         out.pop();
@@ -127,19 +133,19 @@ function fill(template, rhyme, avoidEnd, used, rng) {
   return null;
 }
 
-function render(entries) {
-  const words = entries.map((e) => e.w);
+export function render(entries) {
+  const words = entries.map((e) => e.w).filter(Boolean);
   for (let i = 0; i < words.length - 1; i++) {
-    if (words[i] === 'a' && /^[aeiou]/.test(words[i + 1])) words[i] = 'an';
+    if (words[i] === 'a' && /^[aeiou]/i.test(words[i + 1])) words[i] = 'an';
   }
   const s = words.join(' ');
   return s[0].toUpperCase() + s.slice(1);
 }
 
-const RHYMES = [...new Set(WORDS.filter((e) => e.r).map((e) => e.r))];
+export const RHYMES = [...new Set(WORDS.filter((e) => e.r).map((e) => e.r))];
 
 // One rhymed line pair on a random sound; returns [lineA, lineB] as entry arrays.
-function couplet(used, rng) {
+export function couplet(used, rng) {
   for (const rhyme of shuffled(RHYMES, rng)) {
     for (const ta of shuffled(TEMPLATES, rng)) {
       const a = fill(ta, rhyme, null, used, rng);
