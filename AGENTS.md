@@ -42,8 +42,9 @@ Playable with sound (M), field guide, tree of life, journal, inspector with live
 Share links (S) replay an exact moment in any browser, thanks to `src/dmath.js`.
 Hunters persist 150 days on seeds 2-4 and 6; seeds 1 and 5 lose them near day 110.
 Why (delegated Codex research): too little breeding surplus from tiny prey, see
-`notes/seed5-codex.md`. Ideas Claude has floated: a generative music piece, a
-constrained poem generator, or something useful for the owner.
+`notes/seed5-codex.md`. Tideverse (`node verse/verse.js 7 2`, 2026-10-25) is the
+constrained poem generator: meter and rhyme are enforced, meaning isn't yet.
+Still floated: a generative music piece, or something useful for the owner.
 - Delegation: Paseo can run Codex agents. Brief them tightly (no commits, report to `notes/`),
   reuse an agent that already has the context, and check their numbers before trusting them.
 

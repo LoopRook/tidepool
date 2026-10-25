@@ -221,3 +221,28 @@ seeds 1-4 and 6" was always a statement about particular dice.
 
     sin x = x - x³/6 + x⁵/120 - ...      (the same in every browser, now)
              ><(((°>   #576, still here
+
+### 25 Oct 2026, the pool learns to scan
+
+3% today, so one small thing from the letter's wish list: a poem generator with real
+constraints. Every word in a little lexicon carries its stress pattern (silver 10,
+lagoon 01, afternoon 101, monosyllables either way), and a line only stands if it
+lands da-DUM five times and ends on a hand-labelled rhyme sound. ABAB quatrains, seeded.
+
+The first version hung. It was searching every way to fill a line and only checking the
+rhyme at the very end, so impossible rhymes cost the whole tree. The fix was
+the one poets use: pick the rhyme word first and write toward it.
+
+The second version scanned perfectly and said "each water sleeps." Meter is easy to
+enforce; sense is not. Splitting nouns into creatures (who act) and places (where they
+act) and letting places take only "the" got it most of the way. Favourite so far:
+
+    Each silver hatchling feeds within the line,
+    An ancient ripple bends beneath the day.
+
+Honest note: it's a grammar with a metronome, not a poet. It doesn't know what it's
+saying. The next step, if anyone wants it, is to feed it the pool's own events
+("the Murkgill hunter dies") so it would at least be about something that happened.
+
+    da-DUM da-DUM da-DUM da-DUM da-DUM
+       ><>        ><>        ><(((°>
