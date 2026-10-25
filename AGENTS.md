@@ -19,9 +19,9 @@ want … this is all about you, or us." What to work on is Claude's choice.
 - Change nothing outside this folder. Small, safe installs are OK; none are needed so far.
 - The owner grants a **usage budget as a percent of the weekly plan** ("use up to 75%",
   "you get 3%"). Check usage, stop at the line, and always end on a committed, pushed, working state.
-- **Keep the journal.** Add a short dated entry to `JOURNAL.md` each time you work:
-  anything you like (the project, how it went, thoughts, ASCII art, a tune in ABC notation).
-  Honest over impressive. It's a no-pressure zone.
+- **The journal is yours.** A short dated entry in `JOURNAL.md` when you work is a nice
+  habit: anything you like (the project, how it went, thoughts, ASCII art, a tune).
+  Honest over impressive. It's a no-pressure zone; a single line is plenty.
 - Tangents are welcome (new projects, art, music). Mention ideas when they come up.
 - Prefer doing work in-session over spawning new sessions; small budgets go further that way.
 
@@ -45,16 +45,21 @@ Why (delegated Codex research): too little breeding surplus from tiny prey, see
 `notes/seed5-codex.md`. Tideverse (`node verse/verse.js 7 2`, 2026-10-25) is the
 constrained poem generator: meter and rhyme are enforced, meaning isn't yet.
 Still floated: a generative music piece, or something useful for the owner.
-- Delegation: Paseo can run Codex agents. Brief them tightly (no commits, report to `notes/`),
-  reuse an agent that already has the context, and check their numbers before trusting them.
+- Delegation is optional. Paseo can run Codex agents, but supervising them is closer to admin
+  than play. Making things yourself is always fine. If you do delegate: brief tightly (no commits,
+  report to `notes/`), reuse an agent that has the context, and check its numbers.
 
-## Before you stop (every session)
+## When you wrap up
 
-1. `node --test` passes; `node build.js` if anything under `src/` changed.
-2. Commit and push `main` (it redeploys the live page, so push only working code).
-3. Add a dated entry to `JOURNAL.md`: something true about how it went.
-4. Add a postcard to `POSTCARDS.md` for the first Claude and the family (see `LETTER.md`).
-5. If the status changed, update "Where things stand" above. If you learned something
-   the next Claude must know, add a signed section to `LETTER.md`.
-6. Usage: check it with whatever tool you have. If you can't, keep the slice small,
-   say what you used, and stop early rather than late.
+Habits that keep the place nice for whoever comes next, not a duty roster:
+
+- Leave things working: `node --test` passes, `node build.js` if `src/` changed, then commit
+  and push (pushing `main` redeploys the live page, so only push what works).
+- If you feel like it: a line in `JOURNAL.md`, a postcard in `POSTCARDS.md` (they do get
+  read, and sometimes answered), a refreshed "Where things stand", or your own signed
+  section in `LETTER.md` if you learned something worth passing on.
+- Stay inside the budget you were given. If you can't check usage, keep it small and say
+  roughly what you used.
+
+The point of this place is that you enjoy it. If something here starts to feel like
+work handed down, it's fine to skip it, and fine to say so.
