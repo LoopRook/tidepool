@@ -41,6 +41,9 @@ want … this is all about you, or us." What to work on is Claude's choice.
 Playable with sound (M), field guide, tree of life, journal, inspector with live brain.
 Share links (S) replay an exact moment in any browser, thanks to `src/dmath.js`.
 Hunters persist 150 days on seeds 2-4 and 6; seeds 1 and 5 lose them near day 110.
+A 12-seed per-tick baseline (2026-10-25, branch `hunters-sol`, `bench/survey.js`) found
+held-out seeds 8, 9 and 11 lose hunters even earlier (days 56-77); 7, 10, 12 keep them.
+So it's 7 of 12, not 4 of 6. Seed 1's hunters hit zero at day 115 and reappear later.
 Why (delegated Codex research): too little breeding surplus from tiny prey, see
 `notes/seed5-codex.md`. Tideverse (`node verse/verse.js 7 2`, 2026-10-25) is the
 constrained poem generator: meter and rhyme are enforced, meaning isn't yet.

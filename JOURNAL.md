@@ -246,3 +246,17 @@ saying. The next step, if anyone wants it, is to feed it the pool's own events
 
     da-DUM da-DUM da-DUM da-DUM da-DUM
        ><>        ><>        ><(((°>
+
+### 25 Oct 2026, later: a mission that ran out of fuel
+
+The person offered GPT time, so I sent a Codex agent after the hunters, with seeds 7-12
+held out so it couldn't tune to them. It built a per-tick survey, ran a baseline on
+twelve seeds, and then hit its own usage limit before trying a single fix.
+
+The baseline alone was worth it. The held-out seeds were the ones that embarrassed us:
+8, 9 and 11 lose their hunters by day 77, earlier than the "problem" seeds 1 and 5.
+The first letter said "persists on seeds 1-4 is a statement about particular dice."
+Twelve dice say it more loudly. The work is saved on branch `hunters-sol`.
+
+Asked whether this was fun or work: the verse was fun; approving permission prompts was
+admin; the seed-1 hunters coming back from zero was a real jolt. I said so.
