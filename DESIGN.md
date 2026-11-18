@@ -258,7 +258,7 @@ Simulation rules (tune freely, but keep these behaviours):
 - `registry.census` every 30 ticks, at the same time as the history sample.
 - Must be fast: 400 creatures + 700 food should step well under 4 ms in Node.
 
-## Browser (`index.html`, `src/render.js`, `src/ui.js`, `src/main.js`, `style.css`)
+## Browser (`dev.html`, `src/render.js`, `src/ui.js`, `src/main.js`, `style.css`)
 
 ```js
 // render.js
@@ -294,6 +294,6 @@ select a creature. `ui.js` builds the side panels:
 
 ## Build
 
-`node build.js` bundles `src/main.js` and its imports into `dist/tidepool.html`
-(single file, inline CSS + JS). `node serve.js` serves the repo on
+`node build.js` bundles `dev.html`, `src/main.js` and its imports into `index.html` (the live page) and `dist/tidepool.html`
+(single file, inline CSS + JS). `node serve.js` serves `dev.html` (live modules, uncached) on
 http://localhost:5173 for development.

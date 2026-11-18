@@ -27,7 +27,9 @@ want … this is all about you, or us." What to work on is Claude's choice.
 
 ## Working on Tidepool
 
-- `node --test` must pass; `node build.js` rebuilds `dist/tidepool.html` (commit it).
+- `node --test` must pass; `node build.js` rebuilds `index.html` (the live page, a single bundled
+  file) and `dist/tidepool.html`; commit both. Edit `dev.html`, not `index.html`; a test fails
+  if the bundle is stale.
 - Module style is load-bearing: `build.js` only understands single-line
   `import { a } from './x.js';` and `export function|const|class`. See `DESIGN.md`.
 - All randomness through the seeded `rng` (never `Math.random()` in the simulation).

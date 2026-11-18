@@ -18,7 +18,7 @@ createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   let path = normalize(join(root, decodeURIComponent(url.pathname)));
   if (!path.startsWith(root)) { res.writeHead(403).end(); return; }
-  if (url.pathname.endsWith('/')) path = join(path, 'index.html');
+  if (url.pathname.endsWith('/')) path = join(path, 'dev.html'); // modules, uncached; index.html is the bundle
   try {
     const body = await readFile(path);
     res.writeHead(200, { 'content-type': types[extname(path)] || 'application/octet-stream', 'cache-control': 'no-store' });
