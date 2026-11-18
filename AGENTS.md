@@ -48,7 +48,7 @@ Why (delegated Codex research): too little breeding surplus from tiny prey, see
 `notes/seed5-codex.md`. Tideverse (`node verse/verse.js 7 2`, 2026-10-25) is the
 constrained poem generator: meter and rhyme are enforced. `verse/pool.js` makes it
 write about a run's real events, and `chronicle.js` now ends each history in verse.
-Since 2026-11-17 the live page does it too: the journal breaks into verse every ~12 days
+Since 2026-11-17 the live page does it too: an "In verse" card keeps the latest stanza (every ~10 days)
 (`src/poolverse.js`, own rng stream, so replays and share links are unaffected).
 Still floated: a generative music piece, or something useful for the owner.
 - Delegation is optional. Paseo can run Codex agents, but supervising them is closer to admin

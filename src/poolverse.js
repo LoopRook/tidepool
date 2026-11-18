@@ -3,7 +3,7 @@
 // in the journal every few days) and offline by verse/pool.js and chronicle.js.
 import { DAY } from './world.js';
 import { makeRng } from './rng.js';
-import { fill, render, shuffled, RHYMES, couplet } from './verse.js';
+import { fill, render, shuffled, RHYMES, TEMPLATES, couplet } from './verse.js';
 
 // Stress of every species noun the pool can coin (see src/species.js). Standalone
 // nouns are listed whole; compounds are a head plus a root, with the root carrying
@@ -130,13 +130,14 @@ export function spread(events, n, from, to) {
 }
 
 // Two event lines that rhyme with each other, or null if no shared rhyme scans.
+// Without a second event, the pool's own line answers the first.
 function eventPair(e1, e2, used, rng) {
   for (const rhyme of shuffled(RHYMES, rng)) {
     for (const t1 of shuffled(shapes(e1), rng)) {
       const a = fill(t1, rhyme, null, used, rng);
       if (!a) continue;
       const used2 = new Set([...used, ...a.map((e) => e.w)]);
-      for (const t2 of shuffled(shapes(e2), rng)) {
+      for (const t2 of shuffled(e2 ? shapes(e2) : TEMPLATES, rng)) {
         const b = fill(t2, rhyme, a[a.length - 1].w, used2, rng);
         if (b) return [a, b];
       }
@@ -150,15 +151,15 @@ function eventPair(e1, e2, used, rng) {
 export function stanza(ev, rng) {
   const used = new Set();
   const take = (pair) => { for (const l of pair) for (const e of l) used.add(e.w); return pair; };
-  const p1 = take((ev[2] && eventPair(ev[0], ev[2], used, rng)) || couplet(used, rng));
-  const p2 = take((ev[3] && eventPair(ev[1], ev[3], used, rng)) || couplet(used, rng));
+  const p1 = take((ev[0] && eventPair(ev[0], ev[2], used, rng)) || couplet(used, rng));
+  const p2 = take((ev[1] && eventPair(ev[1], ev[3], used, rng)) || couplet(used, rng));
   const entries = [p1[0], p2[0], p1[1], p2[1]];
   const told = entries.filter((l) => l.some((e) => e.pos === 'Z')).length;
   const text = entries.map(render).map((l, j) => l + (j === 1 ? ';' : j === 3 ? '.' : ',')).join('\n');
   return { text, told, entries };
 }
 
-export const VERSE_DAYS = 12;
+export const VERSE_DAYS = 10;
 
 // Live verse for the page: collects the pool's notable events as they happen and, every
 // VERSE_DAYS days, turns those about species that lasted into a stanza. It has its own
@@ -179,7 +180,7 @@ export function makeVerser(seed) {
       raw.length = 0;
       const start = from;
       from = day;
-      if (notable.length < 2) return null;
+      if (!notable.length) return null;
       return stanza(spread(notable, 4, start, day), makeRng((seed * 31 + ++count) ^ 0x7e55)).text;
     },
   };

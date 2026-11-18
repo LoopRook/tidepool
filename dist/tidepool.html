@@ -232,6 +232,11 @@ body {
 .guide .more { cursor: default; display: block; color: var(--ink-3); font-size: 12px; padding: 6px; }
 .guide .more:hover { background: none; }
 
+/* verse */
+.verse { margin: 0; white-space: pre-line; font: italic 15px/1.55 var(--serif); color: var(--ink); padding-left: 12px; border-left: 2px solid rgba(201, 182, 255, 0.45); }
+.verse.empty { color: var(--ink-3); font-size: 14px; border: 0; padding: 0; }
+.verse.fresh { animation: ink 1.2s ease-out; }
+
 /* journal */
 .journal { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; scrollbar-width: thin; }
 .journal li { font: 15px/1.5 var(--serif); color: var(--ink); padding-left: 12px; border-left: 2px solid rgba(255, 213, 154, 0.18); }
@@ -239,8 +244,6 @@ body {
 .journal li.fresh { animation: ink 1.2s ease-out; }
 .journal li.t-speciation { border-left-color: rgba(143, 227, 207, 0.5); }
 .journal li.t-extinction { border-left-color: rgba(255, 155, 134, 0.5); }
-.journal li.t-verse { white-space: pre-line; font-style: italic; color: var(--ink); border-left-color: rgba(201, 182, 255, 0.5); }
-.journal li.t-verse .day { font-style: normal; }
 .journal .empty { color: var(--ink-3); font-style: italic; border: 0; padding: 0; font-size: 14px; }
 @keyframes ink { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
@@ -318,6 +321,10 @@ body {
       <h2>Population</h2>
       <div class="chart-wrap"><canvas id="chart" aria-label="Population by species over time"></canvas></div>
       <div class="chart-axis"><span id="chart-start"></span><span id="chart-max"></span><span id="chart-end"></span></div>
+    </section>
+    <section class="card">
+      <h2>In verse <span class="count" id="verse-day"></span></h2>
+      <p class="verse empty" id="verse">The pool hasn't found its words yet. Give it ten days.</p>
     </section>
     <section class="card">
       <h2>Tree of life</h2>
@@ -2245,10 +2252,13 @@ return { METER, WORDS, TEMPLATES, scans, shuffled, fill, render, RHYMES, couplet
 const __m8 = (() => {
 const { DAY } = __m1;
 const { makeRng } = __m2;
-const { fill, render, shuffled, RHYMES, couplet } = __m9;
+const { fill, render, shuffled, RHYMES, TEMPLATES, couplet } = __m9;
 // Tideverse, listening: verse about what actually happens in a pool. Event lines name
 // real species; the meter and rhyme rules are verse.js's. Used live by main.js (a stanza
 // in the journal every few days) and offline by verse/pool.js and chronicle.js.
+
+
+
 // Stress of every species noun the pool can coin (see src/species.js). Standalone
 // nouns are listed whole; compounds are a head plus a root, with the root carrying
 // secondary stress (x). A light third syllable may take a beat, as in "Lancelet".
@@ -2374,13 +2384,14 @@ function spread(events, n, from, to) {
 }
 
 // Two event lines that rhyme with each other, or null if no shared rhyme scans.
+// Without a second event, the pool's own line answers the first.
 function eventPair(e1, e2, used, rng) {
   for (const rhyme of shuffled(RHYMES, rng)) {
     for (const t1 of shuffled(shapes(e1), rng)) {
       const a = fill(t1, rhyme, null, used, rng);
       if (!a) continue;
       const used2 = new Set([...used, ...a.map((e) => e.w)]);
-      for (const t2 of shuffled(shapes(e2), rng)) {
+      for (const t2 of shuffled(e2 ? shapes(e2) : TEMPLATES, rng)) {
         const b = fill(t2, rhyme, a[a.length - 1].w, used2, rng);
         if (b) return [a, b];
       }
@@ -2394,15 +2405,15 @@ function eventPair(e1, e2, used, rng) {
 function stanza(ev, rng) {
   const used = new Set();
   const take = (pair) => { for (const l of pair) for (const e of l) used.add(e.w); return pair; };
-  const p1 = take((ev[2] && eventPair(ev[0], ev[2], used, rng)) || couplet(used, rng));
-  const p2 = take((ev[3] && eventPair(ev[1], ev[3], used, rng)) || couplet(used, rng));
+  const p1 = take((ev[0] && eventPair(ev[0], ev[2], used, rng)) || couplet(used, rng));
+  const p2 = take((ev[1] && eventPair(ev[1], ev[3], used, rng)) || couplet(used, rng));
   const entries = [p1[0], p2[0], p1[1], p2[1]];
   const told = entries.filter((l) => l.some((e) => e.pos === 'Z')).length;
   const text = entries.map(render).map((l, j) => l + (j === 1 ? ';' : j === 3 ? '.' : ',')).join('\n');
   return { text, told, entries };
 }
 
-const VERSE_DAYS = 12;
+const VERSE_DAYS = 10;
 
 // Live verse for the page: collects the pool's notable events as they happen and, every
 // VERSE_DAYS days, turns those about species that lasted into a stanza. It has its own
@@ -2423,7 +2434,7 @@ function makeVerser(seed) {
       raw.length = 0;
       const start = from;
       from = day;
-      if (notable.length < 2) return null;
+      if (!notable.length) return null;
       return stanza(spread(notable, 4, start, day), makeRng((seed * 31 + ++count) ^ 0x7e55)).text;
     },
   };
@@ -3433,8 +3444,23 @@ function createUI(handlers) {
     while (journalEl.childElementCount > MAX_JOURNAL) journalEl.lastElementChild.remove();
   }
 
+  // ---------- verse: the latest stanza stays until the next one replaces it ----------
+  const verseEl = $('verse'), verseDay = $('verse-day');
+  const verseEmpty = verseEl.textContent;
+
+  function showVerse(day, text) {
+    verseEl.textContent = text;
+    verseEl.classList.remove('empty', 'fresh');
+    void verseEl.offsetWidth; // restart the ink-in animation
+    verseEl.classList.add('fresh');
+    setText(verseDay, `day ${day}`);
+  }
+
   // ---------- public ----------
   function reset(world) {
+    verseEl.textContent = verseEmpty;
+    verseEl.className = 'verse empty';
+    setText(verseDay, '');
     shownCreature = null; brainLines = null;
     insp.replaceChildren(insTitle, empty);
     insp.classList.remove('deceased');
@@ -3476,6 +3502,7 @@ function createUI(handlers) {
     reset,
     update,
     setControls,
+    verse: showVerse,
     journal(text, event) { pending.push({ text, type: event.type }); if (pending.length > MAX_JOURNAL * 2) pending.splice(0, pending.length - MAX_JOURNAL); },
   };
 }
@@ -3966,7 +3993,7 @@ function drainEvents() {
     } catch (err) {
       if (!narrateFailed) { console.error('verse failed', err); narrateFailed = true; }
     }
-    if (verse) ui.journal(`Day ${Math.floor(world.tick / DAY) + 1}. In verse:\n${verse}`, { type: 'verse' });
+    if (verse) ui.verse(Math.floor(world.tick / DAY) + 1, verse);
     sound.handle(e, world);
   }
 }

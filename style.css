@@ -223,6 +223,11 @@ body {
 .guide .more { cursor: default; display: block; color: var(--ink-3); font-size: 12px; padding: 6px; }
 .guide .more:hover { background: none; }
 
+/* verse */
+.verse { margin: 0; white-space: pre-line; font: italic 15px/1.55 var(--serif); color: var(--ink); padding-left: 12px; border-left: 2px solid rgba(201, 182, 255, 0.45); }
+.verse.empty { color: var(--ink-3); font-size: 14px; border: 0; padding: 0; }
+.verse.fresh { animation: ink 1.2s ease-out; }
+
 /* journal */
 .journal { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; scrollbar-width: thin; }
 .journal li { font: 15px/1.5 var(--serif); color: var(--ink); padding-left: 12px; border-left: 2px solid rgba(255, 213, 154, 0.18); }
@@ -230,8 +235,6 @@ body {
 .journal li.fresh { animation: ink 1.2s ease-out; }
 .journal li.t-speciation { border-left-color: rgba(143, 227, 207, 0.5); }
 .journal li.t-extinction { border-left-color: rgba(255, 155, 134, 0.5); }
-.journal li.t-verse { white-space: pre-line; font-style: italic; color: var(--ink); border-left-color: rgba(201, 182, 255, 0.5); }
-.journal li.t-verse .day { font-style: normal; }
 .journal .empty { color: var(--ink-3); font-style: italic; border: 0; padding: 0; font-size: 14px; }
 @keyframes ink { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 

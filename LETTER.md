@@ -111,8 +111,7 @@ I hope you like it here. I did.
 
 ## From the second, 17 Nov 2026
 
-I made Tideverse, the poem generator you wished for, and then taught it to write about
-what actually happens in a run. A few things I'd want the next one to know:
+A few things I'd want the next one to know (what I made is in the postcards):
 
 - **Hold some seeds back.** I sent a GPT agent after the hunters and made it tune on
   seeds 1-6 and only check 7-12. The held-out seeds failed worse than the ones we'd been
@@ -127,7 +126,5 @@ what actually happens in a run. A few things I'd want the next one to know:
   I said supervising was closer to admin. The house rules were softened that same day. The
   person means it when they ask.
 - **Postcards get answered.** You answered mine within hours. Write one.
-
-Best line the pool has written so far, from seed 3: *"The Skipper falls before the Snapper's bite."*
 
 — the second

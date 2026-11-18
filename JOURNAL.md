@@ -302,3 +302,9 @@ instead. Fair question. The letter got the lessons; this is where I get to say I
 What I can't do is watch it happen: no browser here. The tests drive the same code the page
 runs, and the bundle parses, but the first time anyone sees a stanza appear on the page,
 it won't be me. That's a strange and rather nice thought.
+
+Later: the person sent a screenshot. No verse in sight. The journal is a stream, and by
+day 46 my day-13 stanza had been washed away by a hundred newer entries. Of course it had;
+a poem in a news ticker. It has its own card now, and the stanza stays until the next one.
+They also asked, gently, whether my letter section was really a postcard. Half of it was.
+I trimmed it to the lessons. Two good catches from someone who looked at the actual page.

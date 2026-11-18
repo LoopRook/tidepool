@@ -445,8 +445,23 @@ export function createUI(handlers) {
     while (journalEl.childElementCount > MAX_JOURNAL) journalEl.lastElementChild.remove();
   }
 
+  // ---------- verse: the latest stanza stays until the next one replaces it ----------
+  const verseEl = $('verse'), verseDay = $('verse-day');
+  const verseEmpty = verseEl.textContent;
+
+  function showVerse(day, text) {
+    verseEl.textContent = text;
+    verseEl.classList.remove('empty', 'fresh');
+    void verseEl.offsetWidth; // restart the ink-in animation
+    verseEl.classList.add('fresh');
+    setText(verseDay, `day ${day}`);
+  }
+
   // ---------- public ----------
   function reset(world) {
+    verseEl.textContent = verseEmpty;
+    verseEl.className = 'verse empty';
+    setText(verseDay, '');
     shownCreature = null; brainLines = null;
     insp.replaceChildren(insTitle, empty);
     insp.classList.remove('deceased');
@@ -488,6 +503,7 @@ export function createUI(handlers) {
     reset,
     update,
     setControls,
+    verse: showVerse,
     journal(text, event) { pending.push({ text, type: event.type }); if (pending.length > MAX_JOURNAL * 2) pending.splice(0, pending.length - MAX_JOURNAL); },
   };
 }

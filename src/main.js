@@ -212,7 +212,7 @@ function drainEvents() {
     } catch (err) {
       if (!narrateFailed) { console.error('verse failed', err); narrateFailed = true; }
     }
-    if (verse) ui.journal(`Day ${Math.floor(world.tick / DAY) + 1}. In verse:\n${verse}`, { type: 'verse' });
+    if (verse) ui.verse(Math.floor(world.tick / DAY) + 1, verse);
     sound.handle(e, world);
   }
 }
