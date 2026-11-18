@@ -239,6 +239,8 @@ body {
 .journal li.fresh { animation: ink 1.2s ease-out; }
 .journal li.t-speciation { border-left-color: rgba(143, 227, 207, 0.5); }
 .journal li.t-extinction { border-left-color: rgba(255, 155, 134, 0.5); }
+.journal li.t-verse { white-space: pre-line; font-style: italic; color: var(--ink); border-left-color: rgba(201, 182, 255, 0.5); }
+.journal li.t-verse .day { font-style: normal; }
 .journal .empty { color: var(--ink-3); font-style: italic; border: 0; padding: 0; font-size: 14px; }
 @keyframes ink { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
@@ -2055,7 +2057,382 @@ function narrate(event, world) {
 return { narrate };
 })();
 
+const __m9 = (() => {
+const { makeRng } = __m2;
+// Tideverse: the pool writes rhymed iambic pentameter, with real constraints.
+// Every word carries its stress pattern; a line only stands if its stresses
+// fall da-DUM five times, and rhyming lines share a hand-labelled rhyme sound.
+//
+//   node verse/verse.js 7 3    -> three quatrains (ABAB) for seed 7 (the CLI lives there)
+//
+// Stress codes: 1 stressed, 0 unstressed, x a content monosyllable (fits either,
+// as monosyllables do in English verse). Function words are 0 and never take a beat.
+const METER = '0101010101';
+
+// word:stress:part:rhyme   parts: D det, A adj, S creature (subject), N place or thing,
+// V verb, P prep, R adverb, C conj, T the (places take only "the": no "a sand"). Repeats weight the draw ("the" is common).
+const LEXICON = `
+the:0:D the:0:D the:0:D a:0:D a:0:D each:0:D the:0:T
+silver:10:A pale:x:A slow:x:A green:x:A small:x:A gray:x:A cold:x:A quiet:10:A
+little:10:A hungry:10:A patient:10:A golden:10:A narrow:10:A shallow:10:A scarlet:10:A
+gentle:10:A ancient:10:A striped:x:A restless:10:A hollow:10:A serene:01:A unhurried:010:A
+minnow:10:S hunter:10:S shadow:10:S current:10:S ripple:10:S hatchling:10:S glimmer:10:S
+school:x:S tide:x:S swell:x:S grazer:10:S
+water:10:N algae:10:N morning:10:N surface:10:N
+stone:x:N:one bone:x:N:one tide:x:N:ide side:x:N:ide weed:x:N:eed reed:x:N:eed seed:x:N:eed
+sand:x:N:and strand:x:N:and shell:x:N:ell swell:x:N:ell pool:x:N:ool school:x:N:ool
+light:x:N:ight night:x:N:ight brine:x:N:ine line:x:N:ine deep:x:N:eep
+spray:x:N:ay day:x:N:ay bay:x:N:ay shore:x:N:ore floor:x:N:ore
+lagoon:01:N:oon moon:x:N:oon dune:x:N:oon afternoon:101:N:oon
+glow:x:N:ow flow:x:N:ow undertow:101:N:ow dark:x:N:ark
+drifts:x:V turns:x:V:urns returns:01:V:urns waits:x:V:aits awaits:01:V:aits
+hides:x:V:ides glides:x:V:ides slides:x:V:ides abides:01:V:ides
+feeds:x:V:eeds breeds:x:V:eeds dives:x:V:ives thrives:x:V:ives
+sleeps:x:V:eeps creeps:x:V:eeps sways:x:V:ays stays:x:V:ays strays:x:V:ays
+bends:x:V:ends descends:01:V:ends ascends:01:V:ends remains:01:V:ains
+darts:x:V:arts departs:01:V:arts dies:x:V:ies lies:x:V:ies
+wanders:10:V circles:10:V lingers:10:V hovers:10:V flickers:10:V settles:10:V
+scatters:10:V listens:10:V gathers:10:V
+beneath:01:P below:01:P among:01:P across:01:P along:01:P between:01:P within:01:P
+under:10:P over:10:P in:0:P through:0:P by:0:P past:0:P near:0:P
+slowly:10:R softly:10:R gently:10:R alone:01:R:one again:01:R:en away:01:R:ay
+apart:01:R:art afar:01:R:ar still:x:R:ill
+and:0:C while:0:C as:0:C
+`;
+
+const WORDS = LEXICON.trim().split(/\s+/).map((e) => {
+  const [w, s, pos, r] = e.split(':');
+  return { w, s, pos, r: r || null };
+});
+
+const byPos = {};
+for (const e of WORDS) (byPos[e.pos] ||= []).push(e);
+
+// The last slot of each template ends the line and must carry the rhyme.
+const TEMPLATES = [
+  'D A S V P T N',   // the silver minnow turns beneath the stone
+  'P T A N D S V',   // beneath the quiet weed a hunter waits
+  'D S V R P T A N', // the hunter circles slowly through the ...
+  'C D A S V P T N',
+  'D A S P T N V',
+  'R D A S V P T N',
+  'D S P T A N V R',
+].map((t) => t.split(' '));
+
+function fits(stress, at) {
+  for (let i = 0; i < stress.length; i++) {
+    const want = METER[at + i];
+    if (want === undefined) return false;
+    if (stress[i] !== 'x' && stress[i] !== want) return false;
+  }
+  return true;
+}
+
+// Scan a line made of lexicon entries: true if it is exact iambic pentameter.
+function scans(entries) {
+  let at = 0;
+  for (const e of entries) {
+    if (!fits(e.s, at)) return false;
+    at += e.s.length;
+  }
+  return at === METER.length;
+}
+
+function shuffled(arr, rng) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = rng.int(i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// A slot is a part-of-speech code or an explicit list of entries (for event lines).
+// A trailing "?" makes a slot optional ("A?" is an adjective or nothing).
+const NOTHING = { w: '', s: '', pos: 'F', r: null };
+const cands = (slot) => (typeof slot !== 'string' ? slot
+  : slot.endsWith('?') ? [NOTHING, ...byPos[slot.slice(0, -1)]] : byPos[slot]);
+const spanOf = (slot) => {
+  const lens = cands(slot).map((e) => e.s.length);
+  return [Math.min(...lens), Math.max(...lens)];
+};
+const EXEMPT = new Set(['D', 'T', 'P', 'C', 'F', 'Z']); // may repeat within a stanza
+
+// Fill one template so it scans and ends on the given rhyme (avoiding `used` words).
+// The rhyme word is placed first, at the end of the line; the rest is a search
+// pruned by how many syllables the remaining slots could possibly hold.
+function fill(template, rhyme, avoidEnd, used, rng) {
+  const fresh = (e) => EXEMPT.has(e.pos) || !used.has(e.w);
+  const lastWord = (w) => w.split(' ').pop(); // "down the tide" ends on "tide"
+  const ends = cands(template[template.length - 1]).filter((e) => e.r === rhyme
+    && (!avoidEnd || lastWord(e.w) !== lastWord(avoidEnd)) && fresh(e)
+    && fits(e.s, METER.length - e.s.length));
+  const body = template.slice(0, -1);
+  const minRest = [], maxRest = [];
+  for (let i = body.length, lo = 0, hi = 0; i >= 0; i--) {
+    minRest[i] = lo; maxRest[i] = hi;
+    if (i > 0) { const [a, b] = spanOf(body[i - 1]); lo += a; hi += b; }
+  }
+  for (const end of shuffled(ends, rng)) {
+    const goal = METER.length - end.s.length;
+    const out = [];
+    const go = (slot, at) => {
+      if (slot === body.length) return at === goal;
+      if (at + minRest[slot] > goal || at + maxRest[slot] < goal) return false;
+      for (const e of shuffled(cands(body[slot]), rng)) {
+        if (!fresh(e) || (!EXEMPT.has(e.pos) && (out.some((o) => o.w === e.w) || e.w === end.w)) || !fits(e.s, at)) continue;
+        out.push(e);
+        if (go(slot + 1, at + e.s.length)) return true;
+        out.pop();
+      }
+      return false;
+    };
+    if (go(0, 0)) return [...out, end];
+  }
+  return null;
+}
+
+function render(entries) {
+  const words = entries.map((e) => e.w).filter(Boolean);
+  for (let i = 0; i < words.length - 1; i++) {
+    if (words[i] === 'a' && /^[aeiou]/i.test(words[i + 1])) words[i] = 'an';
+  }
+  const s = words.join(' ');
+  return s[0].toUpperCase() + s.slice(1);
+}
+
+const RHYMES = [...new Set(WORDS.filter((e) => e.r).map((e) => e.r))];
+
+// One rhymed line pair on a random sound; returns [lineA, lineB] as entry arrays.
+function couplet(used, rng) {
+  for (const rhyme of shuffled(RHYMES, rng)) {
+    for (const ta of shuffled(TEMPLATES, rng)) {
+      const a = fill(ta, rhyme, null, used, rng);
+      if (!a) continue;
+      const end = a[a.length - 1].w;
+      const used2 = new Set([...used, ...a.map((e) => e.w)]);
+      for (const tb of shuffled(TEMPLATES, rng)) {
+        const b = fill(tb, rhyme, end, used2, rng);
+        if (b) return [a, b];
+      }
+    }
+  }
+  throw new Error('no couplet found');
+}
+
+// A quatrain rhymed ABAB, as arrays of lexicon entries.
+function quatrain(rng) {
+  const used = new Set();
+  const take = (lines) => { for (const l of lines) for (const e of l) used.add(e.w); return lines; };
+  const [a1, a2] = take(couplet(used, rng));
+  const [b1, b2] = take(couplet(used, rng));
+  return [a1, b1, a2, b2];
+}
+
+function poem(seed, stanzas = 1) {
+  const rng = makeRng(seed);
+  const out = [];
+  for (let i = 0; i < stanzas; i++) {
+    const lines = quatrain(rng).map(render);
+    out.push(lines.map((l, j) => l + (j === 1 ? ';' : j === 3 ? '.' : ',')).join('\n'));
+  }
+  return out.join('\n\n');
+}
+
+return { METER, WORDS, TEMPLATES, scans, shuffled, fill, render, RHYMES, couplet, quatrain, poem };
+})();
+
 const __m8 = (() => {
+const { DAY } = __m1;
+const { makeRng } = __m2;
+const { fill, render, shuffled, RHYMES, couplet } = __m9;
+// Tideverse, listening: verse about what actually happens in a pool. Event lines name
+// real species; the meter and rhyme rules are verse.js's. Used live by main.js (a stanza
+// in the journal every few days) and offline by verse/pool.js and chronicle.js.
+// Stress of every species noun the pool can coin (see src/species.js). Standalone
+// nouns are listed whole; compounds are a head plus a root, with the root carrying
+// secondary stress (x). A light third syllable may take a beat, as in "Lancelet".
+const NOUNS = `Grouper:10 Wallower:10x Hulk:x Bass:x Minnow:10 Goby:10 Sprat:x Tiddler:10
+Darter:10 Skipper:10 Flash:x Scud:x Drifter:10 Dawdler:10 Loafer:10 Bumbler:10 Snapper:10
+Reefstalker:1x0 Lurker:10 Marauder:010 Ambusher:10x Reaver:10 Gulper:10 Shadowjaw:10x
+Grazer:10 Nibbler:10 Weedpicker:1x0 Mossgleaner:1x0 Browser:10 Pipefish:1x Needlefish:10x
+Eelet:10 Lancelet:10x Puffer:10 Bobber:10 Roundling:10 Dumpling:10 Watcher:10 Lookout:1x
+Gazer:10 Sentinel:10x Shiner:10 Glint:x Sparkler:10 Gloamer:10 Shade:x Skulker:10 Wrasse:x
+Blenny:10 Sculpin:10 Tidewalker:1x0`;
+const TWO_SYLLABLE_HEADS = 'barrel boulder arrow idle dawdle razor nibble needle ribbon spindle button bobble pebble glimmer shimmer lantern'.split(' ');
+const HEADS = TWO_SYLLABLE_HEADS.concat('great bulk pip mote bead speck dart flick zip quill drift loll snap fang hook grim gulp moss weed kelp wrack lance reed puff watch gaze peer wake gleam dusk murk shade gloam reef tide pool shoal brine'.split(' '));
+const ROOTS = { belly: 'x0', body: 'x0' }; // every other root is one syllable
+
+const NOUN_STRESS = new Map(NOUNS.split(/\s+/).map((t) => t.split(':')));
+
+function nameStress(word) {
+  if (NOUN_STRESS.has(word)) return NOUN_STRESS.get(word);
+  const w = word.toLowerCase().replace('-', '');
+  const head = HEADS.filter((h) => w.startsWith(h)).sort((a, b) => b.length - a.length)[0];
+  if (!head) return null;
+  const root = w.slice(head.length);
+  return (TWO_SYLLABLE_HEADS.includes(head) ? '10' : '1') + (ROOTS[root] || 'x');
+}
+
+const E = (spec, pos) => spec.trim().split(/\s+/).map((t) => {
+  const [w, s, r] = t.split(':');
+  return { w: w.replace(/_/g, ' '), s, pos, r: r || null };
+});
+
+const BORN = E('appears:01:ears arrives:01:ives emerges:010 begins:01:ins is_born:01:orn hatches:10 wakes:x:akes stirs:x:irs rises:10', 'V');
+const GONE = E('dies:x:ies departs:01:arts is_gone:01:on fades:x:ades is_lost:01:ost passes:10 falters:10 vanishes:10x', 'V');
+const THRIVE = E('thrive:x:ive gather:10 abound:01:ound flourish:10 crowd:x:owd swarm:x:arm', 'V');
+const TAKES = E('takes:x:akes seizes:10 hunts:x catches:10 finds:x:inds devours:01:ours', 'V');
+const LAST = E('the_final:010 the_last:01', 'F');
+const NEW = E('at_last_the:010 and_now_the:010 and_then_the:010', 'F');
+// Names are stressed on their first syllable, so what follows one must start on a beat.
+const TAIL = E('late_at_night:101:ight far_from_shore:101:ore down_the_tide:101:ide deep_in_brine:101:ine near_the_sand:101:and near_the_stone:101:one', 'F');
+const FALLS = E('falls_before:x01 is_lost_before:0101 goes_down_before:x101', 'F');
+const BITE = E('bite:x:ight jaw:x:aw maw:x:aw teeth:x:eeth', 'N');
+const ONE = E('a:0 one:x', 'F');
+
+const speciesEntry = (sp, plural = false, possessive = false) => {
+  const noun = sp.name.common.split(' ').pop();
+  if (!nameStress(noun)) return [];
+  if (possessive) return [{ w: noun + "'s", s: nameStress(noun), pos: 'Z', r: null }];
+  if (!plural) return [{ w: noun, s: nameStress(noun), pos: 'Z', r: null }];
+  const es = /(s|sh|ch|x|z)$/.test(noun);
+  return [{ w: noun + (es ? 'es' : 's'), s: nameStress(noun) + (es ? '0' : ''), pos: 'Z', r: null }];
+};
+
+// Line shapes for each kind of event; the search keeps whichever ones scan.
+function shapes(ev) {
+  const Z = speciesEntry(ev.a);
+  switch (ev.kind) {
+    case 'born': return [
+      ['T', ...[Z], BORN, 'P', 'T', 'A?', 'N'], ['T', Z, BORN, 'P', 'T', 'N'], [NEW, Z, BORN, 'P', 'T', 'N'],
+      ['P', 'T', 'A?', 'N', 'T', Z, BORN], ['P', 'T', 'N', NEW, Z, BORN], [NEW, Z, 'V', 'P', 'T', 'A?', 'N'],
+      ['C?', 'T', Z, 'V', 'P', 'T', 'N'], [NEW, Z, BORN, TAIL], ['T', 'A?', Z, BORN, 'R'], ['T', Z, BORN, 'R'],
+    ];
+    case 'gone': return [
+      [LAST, Z, GONE, 'P', 'T', 'A?', 'N'], [LAST, Z, GONE, 'P', 'T', 'N'], ['P', 'T', 'A?', 'N', LAST, Z, GONE],
+      ['P', 'T', 'N', LAST, Z, GONE], ['C', LAST, Z, GONE, 'R'], [LAST, Z, GONE, 'R'], ['T', 'A?', Z, GONE, TAIL], ['T', 'A?', Z, GONE, 'R'],
+    ];
+    case 'thrive': {
+      const Zs = speciesEntry(ev.a, true);
+      return [
+        ['T', Zs, THRIVE, 'P', 'T', 'A?', 'N'], ['T', Zs, THRIVE, 'P', 'T', 'N'], ['P', 'T', 'A?', 'N', 'T', Zs, THRIVE],
+        ['P', 'T', 'N', 'T', 'A?', Zs, THRIVE], ['T', 'A?', Zs, THRIVE, 'R'], ['C', 'T', Zs, THRIVE, 'P', 'T', 'N'],
+      ];
+    }
+    case 'hunt': {
+      const Y = speciesEntry(ev.b);
+      return [
+        ['T', Z, TAKES, ONE, Y, 'P', 'T', 'N'], ['T', Z, TAKES, ONE, Y, 'R'], ['T', 'A?', Z, TAKES, ONE, Y, 'R'],
+        ['P', 'T', 'N', 'T', Z, TAKES, ONE, Y], ['T', Z, TAKES, 'T', 'A?', Y, 'R'], ['C', 'T', Z, TAKES, ONE, Y, 'R'],
+        ['T', Z, TAKES, 'T', Y, 'P', 'T', 'N'], ['T', Z, TAKES, ONE, Y, TAIL], ['T', Z, TAKES, 'T', Y, TAIL],
+        ['T', Y, FALLS, 'T', speciesEntry(ev.a, false, true), BITE],
+      ];
+    }
+  }
+  return [];
+}
+
+// Run a pool and keep the events worth a line: species that lasted being born,
+// thriving, hunting each other for the first time, and going extinct.
+// The same selection from events someone else already collected (chronicle.js does).
+function notableEvents(raw, w) {
+  const byId = new Map(w.species.all().map((s) => [s.id, s]));
+  const lasting = (id) => (byId.get(id)?.peakPopulation ?? 0) >= 5;
+  const seenHunt = new Set();
+  const out = [];
+  for (const e of raw) {
+    const day = e.tick / DAY;
+    if (e.type === 'speciation' && e.parentId !== null && lasting(e.speciesId)) out.push({ day, kind: 'born', a: byId.get(e.speciesId) });
+    else if (e.type === 'extinction' && lasting(e.speciesId)) out.push({ day, kind: 'gone', a: byId.get(e.speciesId) });
+    else if (e.type === 'milestone' && lasting(e.speciesId)) out.push({ day, kind: 'thrive', a: byId.get(e.speciesId) });
+    else if (e.type === 'predation' && e.predatorSpecies !== e.preySpecies && lasting(e.predatorSpecies) && lasting(e.preySpecies)) {
+      const key = e.predatorSpecies + ':' + e.preySpecies;
+      if (seenHunt.has(key)) continue;
+      seenHunt.add(key);
+      out.push({ day, kind: 'hunt', a: byId.get(e.predatorSpecies), b: byId.get(e.preySpecies) });
+    }
+  }
+  return out;
+}
+
+// Pick n events spread evenly through days from..to (not its event count, which
+// bunches up early when every species meets every other for the first time).
+function spread(events, n, from, to) {
+  if (events.length <= n) return events;
+  const chosen = new Set();
+  for (let i = 0; i < n; i++) {
+    const target = from + ((i + 0.5) * (to - from)) / n;
+    let best = -1;
+    for (let j = 0; j < events.length; j++) {
+      if (chosen.has(j)) continue;
+      if (best < 0 || Math.abs(events[j].day - target) < Math.abs(events[best].day - target)) best = j;
+    }
+    chosen.add(best);
+  }
+  return [...chosen].sort((a, b) => a - b).map((j) => events[j]);
+}
+
+// Two event lines that rhyme with each other, or null if no shared rhyme scans.
+function eventPair(e1, e2, used, rng) {
+  for (const rhyme of shuffled(RHYMES, rng)) {
+    for (const t1 of shuffled(shapes(e1), rng)) {
+      const a = fill(t1, rhyme, null, used, rng);
+      if (!a) continue;
+      const used2 = new Set([...used, ...a.map((e) => e.w)]);
+      for (const t2 of shuffled(shapes(e2), rng)) {
+        const b = fill(t2, rhyme, a[a.length - 1].w, used2, rng);
+        if (b) return [a, b];
+      }
+    }
+  }
+  return null;
+}
+
+// One ABAB quatrain from up to four events, as rendered lines plus the raw entries.
+// Lines 1 and 3 rhyme, as do 2 and 4; an event that can't scan gives way to the pool's own line.
+function stanza(ev, rng) {
+  const used = new Set();
+  const take = (pair) => { for (const l of pair) for (const e of l) used.add(e.w); return pair; };
+  const p1 = take((ev[2] && eventPair(ev[0], ev[2], used, rng)) || couplet(used, rng));
+  const p2 = take((ev[3] && eventPair(ev[1], ev[3], used, rng)) || couplet(used, rng));
+  const entries = [p1[0], p2[0], p1[1], p2[1]];
+  const told = entries.filter((l) => l.some((e) => e.pos === 'Z')).length;
+  const text = entries.map(render).map((l, j) => l + (j === 1 ? ';' : j === 3 ? '.' : ',')).join('\n');
+  return { text, told, entries };
+}
+
+const VERSE_DAYS = 12;
+
+// Live verse for the page: collects the pool's notable events as they happen and, every
+// VERSE_DAYS days, turns those about species that lasted into a stanza. It has its own
+// random stream, so it never disturbs the simulation (or a share link's replay).
+function makeVerser(seed) {
+  const raw = [];
+  const seenHunt = new Set();
+  let from = 0, count = 0;
+  return {
+    handle(e, world) {
+      if (e.type === 'predation') {
+        const key = e.predatorSpecies + ':' + e.preySpecies;
+        if (!seenHunt.has(key)) { seenHunt.add(key); raw.push(e); }
+      } else if (e.type === 'speciation' || e.type === 'extinction' || e.type === 'milestone') raw.push(e);
+      const day = world.tick / DAY;
+      if (day < from + VERSE_DAYS) return null;
+      const notable = notableEvents(raw, world);
+      raw.length = 0;
+      const start = from;
+      from = day;
+      if (notable.length < 2) return null;
+      return stanza(spread(notable, 4, start, day), makeRng((seed * 31 + ++count) ^ 0x7e55)).text;
+    },
+  };
+}
+
+return { nameStress, notableEvents, spread, stanza, VERSE_DAYS, makeVerser };
+})();
+
+const __m10 = (() => {
 const { bodyRadius } = __m1;
 // Canvas renderer for the pool.
 // View = { scale, ox, oy }: screen (CSS px) = (world - o) * scale, so (ox, oy) is
@@ -2605,8 +2982,8 @@ function createRenderer(canvas) {
 return { drawPortrait, createRenderer };
 })();
 
-const __m9 = (() => {
-const { drawPortrait } = __m8;
+const __m11 = (() => {
+const { drawPortrait } = __m10;
 const { express } = __m4;
 const { INPUTS, OUTPUTS, HIDDEN } = __m5;
 const { DAY } = __m1;
@@ -3106,7 +3483,7 @@ function createUI(handlers) {
 return { createUI };
 })();
 
-const __m10 = (() => {
+const __m12 = (() => {
 
 // The pool's voice. Browser-only (Web Audio); created lazily on the first user
 // gesture because browsers refuse to start audio before one.
@@ -3238,7 +3615,7 @@ function createSound() {
 return { speciesPitch, createSound };
 })();
 
-const __m12 = (() => {
+const __m14 = (() => {
 
 // Tree-of-life layout. Pure: species list in, rows out.
 //
@@ -3292,8 +3669,8 @@ function layoutPhylogeny(species, tick, options = {}) {
 return { isNotable, layoutPhylogeny };
 })();
 
-const __m11 = (() => {
-const { layoutPhylogeny } = __m12;
+const __m13 = (() => {
+const { layoutPhylogeny } = __m14;
 // Tree-of-life panel: draws layoutPhylogeny() on a canvas, with hover captions
 // and click-to-follow for living species.
 
@@ -3376,19 +3753,14 @@ return { createTreePanel };
 })();
 
 const __m0 = (() => {
-const { createWorld, step, findCreatureAt } = __m1;
+const { createWorld, step, findCreatureAt, DAY } = __m1;
 const { narrate } = __m7;
-const { createRenderer } = __m8;
-const { createUI } = __m9;
-const { createSound } = __m10;
-const { createTreePanel } = __m11;
+const { makeVerser } = __m8;
+const { createRenderer } = __m10;
+const { createUI } = __m11;
+const { createSound } = __m12;
+const { createTreePanel } = __m13;
 // Browser entry: builds the world from #seed=N, runs the loop, handles input.
-
-
-
-
-
-
 const TICKS_PER_SEC = 60;
 const STEP_BUDGET_MS = 12;   // cap on simulation time per frame so 64x stays responsive
 const UI_INTERVAL_MS = 150;  // panels refresh ~6-7 times a second; the canvas every frame
@@ -3421,6 +3793,7 @@ let fitted = true;      // view still shows the whole pool; refit on resize
 let lastSeq = 0;
 const fresh = [];
 let narrateFailed = false;
+let verser = null;       // writes a stanza into the journal every few days
 const sound = createSound();
 const btnSound = document.getElementById('btn-sound');
 function toggleSound() {
@@ -3521,6 +3894,7 @@ function randomSeed() {
 
 function start(seed) {
   world = createWorld({ seed });
+  verser = makeVerser(seed);
   lastSeq = 0;
   state.selected = null; state.selectedDead = false; state.death = null; state.follow = false;
   ui.reset(world);
@@ -3586,6 +3960,13 @@ function drainEvents() {
       if (!narrateFailed) { console.error('narrate failed', err); narrateFailed = true; }
     }
     if (text) ui.journal(text, e);
+    let verse = null;
+    try {
+      verse = verser.handle(e, world);
+    } catch (err) {
+      if (!narrateFailed) { console.error('verse failed', err); narrateFailed = true; }
+    }
+    if (verse) ui.journal(`Day ${Math.floor(world.tick / DAY) + 1}. In verse:\n${verse}`, { type: 'verse' });
     sound.handle(e, world);
   }
 }

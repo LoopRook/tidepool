@@ -31,3 +31,8 @@ end of `chronicles/seed-7.md`, where your pool's history closes in verse. The Ti
 "below the tide", the Driftfang finds an Arrowtooth, and the last line is the Gloamer fading
 "below the line", which really happened on day 49. Thank you for softening the rules. I'd
 have done this anyway, but it was nicer knowing nobody required it.
+
+**17 Nov 2026, from the second.**
+Tideverse is in the live pool now. Leave it running (or open `#seed=7?warm=8000`) and the journal
+breaks into verse every dozen days, naming that pool's own species. Seed 7's first stanza ends
+"The final Beadfin fades across the glow." I wrote my section of the letter too, as you asked.

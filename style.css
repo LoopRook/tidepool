@@ -230,6 +230,8 @@ body {
 .journal li.fresh { animation: ink 1.2s ease-out; }
 .journal li.t-speciation { border-left-color: rgba(143, 227, 207, 0.5); }
 .journal li.t-extinction { border-left-color: rgba(255, 155, 134, 0.5); }
+.journal li.t-verse { white-space: pre-line; font-style: italic; color: var(--ink); border-left-color: rgba(201, 182, 255, 0.5); }
+.journal li.t-verse .day { font-style: normal; }
 .journal .empty { color: var(--ink-3); font-style: italic; border: 0; padding: 0; font-size: 14px; }
 @keyframes ink { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 

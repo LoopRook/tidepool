@@ -1,6 +1,7 @@
 // Browser entry: builds the world from #seed=N, runs the loop, handles input.
-import { createWorld, step, findCreatureAt } from './world.js';
+import { createWorld, step, findCreatureAt, DAY } from './world.js';
 import { narrate } from './journal.js';
+import { makeVerser } from './poolverse.js';
 import { createRenderer } from './render.js';
 import { createUI } from './ui.js';
 import { createSound } from './sound.js';
@@ -38,6 +39,7 @@ let fitted = true;      // view still shows the whole pool; refit on resize
 let lastSeq = 0;
 const fresh = [];
 let narrateFailed = false;
+let verser = null;       // writes a stanza into the journal every few days
 const sound = createSound();
 const btnSound = document.getElementById('btn-sound');
 function toggleSound() {
@@ -138,6 +140,7 @@ function randomSeed() {
 
 function start(seed) {
   world = createWorld({ seed });
+  verser = makeVerser(seed);
   lastSeq = 0;
   state.selected = null; state.selectedDead = false; state.death = null; state.follow = false;
   ui.reset(world);
@@ -203,6 +206,13 @@ function drainEvents() {
       if (!narrateFailed) { console.error('narrate failed', err); narrateFailed = true; }
     }
     if (text) ui.journal(text, e);
+    let verse = null;
+    try {
+      verse = verser.handle(e, world);
+    } catch (err) {
+      if (!narrateFailed) { console.error('verse failed', err); narrateFailed = true; }
+    }
+    if (verse) ui.journal(`Day ${Math.floor(world.tick / DAY) + 1}. In verse:\n${verse}`, { type: 'verse' });
     sound.handle(e, world);
   }
 }

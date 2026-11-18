@@ -34,7 +34,8 @@ its brain think. Space pauses, 1-4 set speed, F follows, S copies a link to this
 | `src/render.js`, `src/ui.js`, `src/main.js` | canvas art, side panels, loop and input |
 | `src/sound.js`, `src/phylo.js`, `src/tree.js` | the pool's voice; tree-of-life layout and panel |
 | `chronicle.js` | headless run that writes a pool's natural history |
-| `verse/verse.js` | Tideverse: rhymed iambic pentameter, every word stress-marked (`node verse/verse.js 7 2`) |
+| `src/verse.js`, `src/poolverse.js` | Tideverse: rhymed iambic pentameter, every word stress-marked; the live page writes a stanza into the journal every few days |
+| `verse/verse.js` | Tideverse CLI (`node verse/verse.js 7 2`) |
 | `verse/pool.js` | Tideverse, listening: verse about a run's real births, hunts and extinctions (`node verse/pool.js 7 60`); chronicles end with it |
 | `build.js`, `serve.js` | single-file bundler, dev server |
 

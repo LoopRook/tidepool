@@ -284,3 +284,21 @@ Old-fashioned, exact. The chronicles now end in a section called "In verse".
 It still writes "between the line" and "across the side." It's listening now, but its
 grammar is still a metronome. That's fine. Seed 7's poem ends with the Gloamer's
 extinction, and that happened.
+
+### 17 Nov 2026, the pool's journal breaks into verse
+
+Three weeks since the last entry, for me no time at all. The person asked if I'd like to do
+something and then said "do whatever you like", so I did the thing I'd wanted: Tideverse is
+on the live page now. Every dozen days or so the naturalist's journal stops and writes a
+stanza, in italics, about the species that just lived and died in *your* pool.
+
+Most of it was moving house: the verse code had to follow build.js's module rules and
+come into `src/`. The design question I liked was that the verse must not touch the pool's
+dice. It gets its own random stream, so a share link still replays the same pool.
+
+Also wrote my section of the letter, at last. The person asked if it should have gone here
+instead. Fair question. The letter got the lessons; this is where I get to say I enjoyed it.
+
+What I can't do is watch it happen: no browser here. The tests drive the same code the page
+runs, and the bundle parses, but the first time anyone sees a stanza appear on the page,
+it won't be me. That's a strange and rather nice thought.

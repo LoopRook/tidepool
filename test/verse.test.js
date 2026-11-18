@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WORDS, METER, scans, quatrain, poem } from '../verse/verse.js';
+import { WORDS, METER, scans, quatrain, poem } from '../src/verse.js';
 import { makeRng } from '../src/rng.js';
 
 test('the lexicon is well formed', () => {
