@@ -37,6 +37,7 @@ its brain think. Space pauses, 1-4 set speed, F follows, S copies a link to this
 | `src/verse.js`, `src/poolverse.js` | Tideverse: rhymed iambic pentameter, every word stress-marked; the live page writes a stanza into the journal every few days |
 | `verse/verse.js` | Tideverse CLI (`node verse/verse.js 7 2`) |
 | `verse/pool.js` | Tideverse, listening: verse about a run's real births, hunts and extinctions (`node verse/pool.js 7 60`); chronicles end with it |
+| `song/song.js` | Tidesong: a run as a two-voice tune in ABC notation, grazers in the treble, hunters in the bass (`node song/song.js 7 60` writes `songs/seed-7.abc`; paste it into any ABC player) |
 | `build.js`, `serve.js` | single-file bundler, dev server |
 
 ## Status (2026-10-20)

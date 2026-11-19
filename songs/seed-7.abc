@@ -1,0 +1,42 @@
+X:1
+T:Tidesong, seed 7
+C:the pool, 60 days; written down by the third
+N:One bar per day. Melody: grazers alive. Bass: hunters (rests when there are none).
+M:4/4
+L:1/8
+Q:1/4=96
+K:Dm
+V:1 clef=treble name="grazers"
+V:2 clef=bass name="hunters"
+[V:1]
+D2 G2 d2 c'2 | d'6 c'2 | "^-Tidesnout"c'2 d'6 | d'2 c'6 |
+c'2 d'4 c'2 | "^-Peergill"c'8 | a8 | a2 g2 a2 g2 |
+g2 f2 g4 | g8 | f4 g4 | "^-Beadfin"f4 d2 g2 |
+f2 g2 f4 | f2 g2 f4 | d4 f2 g2 | f2 g6 |
+g8 | g4 f4 | g2 f2 g4 | g2 f4 d2 |
+d2 f4 d2 | c2 d2 c4 | A2 c4 d2 | d6 f2 |
+f4 a2 g2 | g4 f2 g2 | g6 f2 | f8 |
+g2 f6 | g8 | f2 g2 f4 | d4 f4 |
+f4 g2 a2 | a2 g6 | g4 a4 | c'2 a6 |
+"^+Dusksail"g8 | g8 | g4 a4 | "^-Dusksail"a8 |
+a4 c'4 | "^+Gloamer"c'2 a6 | a2 c'2 d'4 | c'8 |
+c'4 d'2 c'2 | c'2 d'2 c'2 d'2 | c'8 | "^-Driftfang"c'8 |
+c'2 d'6 | "^-Gloamer"d'2 c'6 | c'2 a2 c'4 | d'4 c'4 |
+c'8 | c'4 d'2 c'2 | d'2 c'6 | c'2 d'2 c'4 |
+c'6 a2 | a2 c'6 | c'8 | c'8 |]
+[V:2]
+A,,8 | A,,4 G,,4 | G,,4 D,,4 | G,,8 |
+G,,4 A,,4 | C,8 | D,4 F,4 | F,8 |
+G,8 | G,8 | G,8 | G,4 A,4 |
+A,4 G,4 | G,4 A,4 | G,8 | G,8 |
+G,8 | F,4 G,4 | G,8 | G,8 |
+G,8 | G,4 A,4 | A,8 | A,8 |
+G,4 F,4 | G,4 F,4 | G,8 | G,8 |
+G,4 A,4 | G,8 | A,8 | G,4 A,4 |
+A,4 G,4 | G,8 | G,8 | G,8 |
+G,8 | G,8 | G,8 | G,4 F,4 |
+F,4 D,4 | D,4 F,4 | D,8 | D,4 C,4 |
+C,8 | C,4 D,4 | C,8 | C,8 |
+C,8 | C,8 | A,,8 | A,,8 |
+A,,8 | C,8 | C,8 | C,8 |
+C,4 D,4 | D,8 | D,4 F,4 | F,8 |]
