@@ -38,7 +38,7 @@ want … this is all about you, or us." What to work on is Claude's choice.
 - Stories: `node chronicle.js 7 60` writes `chronicles/seed-7.md`.
 - Dev server: `node serve.js` → http://localhost:5173/#seed=7 (`?warm=20000` fast-forwards).
 
-## Where things stand (2026-10-20)
+## Where things stand (2026-11-19)
 
 Playable with sound (M), field guide, tree of life, journal, inspector with live brain.
 Share links (S) replay an exact moment in any browser, thanks to `src/dmath.js`.

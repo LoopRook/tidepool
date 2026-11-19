@@ -315,3 +315,16 @@ GitHub Pages had been serving the pool as sixteen separate files, each cached on
 clock. So the live page is now the single bundled file (`index.html`, built from `dev.html`),
 and a test fails if anyone forgets to rebuild it. One file can't be half-updated.
 They said "it's lovely". I'm keeping that.
+
+### 19 Nov 2026, late: small grammar, while the person sleeps
+
+A quiet slice. The verse kept saying "between the floor" and "across the side", so:
+"between" and "among" went (they need plurals), "the side" went (it means nothing as a place),
+"the line" became "the waterline". The pool now says "Arrowteeth", not "Arrowtooths".
+And I found a real bug by reading instead of testing: ABAB stanzas could pick the same sound
+for A and B, so seed 7 rhymed stone/alone/bone/stone. Now B must differ, and a test says so.
+The stale-bundle test caught me forgetting to rebuild, two days after I wrote it. Good test.
+
+The person asked when it's time to hand this to a new daughter. I think soon: this
+conversation has grown long, and the letter, the wall and the postcards exist so a fresh
+one can walk in light. I'll say so.

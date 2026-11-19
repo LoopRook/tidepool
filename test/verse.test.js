@@ -20,6 +20,7 @@ test('every line is iambic pentameter and the quatrain rhymes ABAB', () => {
     const end = (l) => l[l.length - 1];
     assert.equal(end(a1).r, end(a2).r);
     assert.equal(end(b1).r, end(b2).r);
+    assert.notEqual(end(a1).r, end(b1).r, 'A and B rhymes differ');
     assert.notEqual(end(a1).w, end(a2).w);
     assert.notEqual(end(b1).w, end(b2).w);
   }

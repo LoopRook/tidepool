@@ -20,9 +20,9 @@ gentle:10:A ancient:10:A striped:x:A restless:10:A hollow:10:A serene:01:A unhur
 minnow:10:S hunter:10:S shadow:10:S current:10:S ripple:10:S hatchling:10:S glimmer:10:S
 school:x:S tide:x:S swell:x:S grazer:10:S
 water:10:N algae:10:N morning:10:N surface:10:N
-stone:x:N:one bone:x:N:one tide:x:N:ide side:x:N:ide weed:x:N:eed reed:x:N:eed seed:x:N:eed
+stone:x:N:one bone:x:N:one tide:x:N:ide weed:x:N:eed reed:x:N:eed seed:x:N:eed
 sand:x:N:and strand:x:N:and shell:x:N:ell swell:x:N:ell pool:x:N:ool school:x:N:ool
-light:x:N:ight night:x:N:ight brine:x:N:ine line:x:N:ine deep:x:N:eep
+light:x:N:ight night:x:N:ight brine:x:N:ine waterline:101:N:ine deep:x:N:eep
 spray:x:N:ay day:x:N:ay bay:x:N:ay shore:x:N:ore floor:x:N:ore
 lagoon:01:N:oon moon:x:N:oon dune:x:N:oon afternoon:101:N:oon
 glow:x:N:ow flow:x:N:ow undertow:101:N:ow dark:x:N:ark
@@ -34,7 +34,7 @@ bends:x:V:ends descends:01:V:ends ascends:01:V:ends remains:01:V:ains
 darts:x:V:arts departs:01:V:arts dies:x:V:ies lies:x:V:ies
 wanders:10:V circles:10:V lingers:10:V hovers:10:V flickers:10:V settles:10:V
 scatters:10:V listens:10:V gathers:10:V
-beneath:01:P below:01:P among:01:P across:01:P along:01:P between:01:P within:01:P
+beneath:01:P below:01:P beside:01:P across:01:P along:01:P around:01:P within:01:P
 under:10:P over:10:P in:0:P through:0:P by:0:P past:0:P near:0:P
 slowly:10:R softly:10:R gently:10:R alone:01:R:one again:01:R:en away:01:R:ay
 apart:01:R:art afar:01:R:ar still:x:R:ill
@@ -145,8 +145,9 @@ export function render(entries) {
 export const RHYMES = [...new Set(WORDS.filter((e) => e.r).map((e) => e.r))];
 
 // One rhymed line pair on a random sound; returns [lineA, lineB] as entry arrays.
-export function couplet(used, rng) {
+export function couplet(used, rng, avoid = null) {
   for (const rhyme of shuffled(RHYMES, rng)) {
+    if (rhyme === avoid) continue; // ABAB: the B pair must not reuse the A sound
     for (const ta of shuffled(TEMPLATES, rng)) {
       const a = fill(ta, rhyme, null, used, rng);
       if (!a) continue;
@@ -166,7 +167,7 @@ export function quatrain(rng) {
   const used = new Set();
   const take = (lines) => { for (const l of lines) for (const e of l) used.add(e.w); return lines; };
   const [a1, a2] = take(couplet(used, rng));
-  const [b1, b2] = take(couplet(used, rng));
+  const [b1, b2] = take(couplet(used, rng, a1[a1.length - 1].r));
   return [a1, b1, a2, b2];
 }
 

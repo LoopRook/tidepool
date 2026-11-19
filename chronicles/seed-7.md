@@ -45,21 +45,21 @@
 
 *Days 2–11*
 
-The final Tidesnout dies below the tide,  
-The Driftfang finds an Arrowtooth alone;  
-The Arrowtooths abound across the side,  
-The quiet Beadfin falters near the stone.  
+The ancient Tidesnout passes near the stone,  
+The Driftfang finds an Arrowtooth away;  
+The Arrowteeth abound below the bone,  
+The final Beadfin fades within the bay.  
 
 *Days 36–41*
 
-And now the Dusksail bends within the tide,  
-Afar each small swell glides within the school;  
-The final Dusksail dies across the side,  
-The little hatchling feeds within the pool.  
+At last the Dusksail wakes beside the school,  
+The golden tide around the morning thrives;  
+The final Dusksail fades along the pool,  
+Beside the gray lagoon each minnow dives.  
 
 *Days 45–49*
 
-A school breeds still along the silver night,  
-The Driftfang finds the Gloamer deep in brine;  
-A golden glimmer glides across the light,  
-The final Gloamer fades below the line.  
+Alone the slow school bends beneath the shell,  
+The Driftfang finds one Gloamer late at night;  
+The narrow tide returns across the swell,  
+The final Gloamer fades beside the light.  

@@ -52,8 +52,12 @@ const speciesEntry = (sp, plural = false, possessive = false) => {
   if (!nameStress(noun)) return [];
   if (possessive) return [{ w: noun + "'s", s: nameStress(noun), pos: 'Z', r: null }];
   if (!plural) return [{ w: noun, s: nameStress(noun), pos: 'Z', r: null }];
-  const es = /(s|sh|ch|x|z)$/.test(noun);
-  return [{ w: noun + (es ? 'es' : 's'), s: nameStress(noun) + (es ? '0' : ''), pos: 'Z', r: null }];
+  let w = noun, s = nameStress(noun);
+  if (/tooth$/.test(noun)) w = noun.slice(0, -5) + 'teeth';  // Arrowteeth, as English would
+  else if (/fish$/.test(noun)) w = noun;                     // Pipefish, like fish
+  else if (/(s|sh|ch|x|z)$/.test(noun)) { w = noun + 'es'; s += '0'; }
+  else w = noun + 's';
+  return [{ w, s, pos: 'Z', r: null }];
 };
 
 // Line shapes for each kind of event; the search keeps whichever ones scan.
@@ -131,8 +135,9 @@ export function spread(events, n, from, to) {
 
 // Two event lines that rhyme with each other, or null if no shared rhyme scans.
 // Without a second event, the pool's own line answers the first.
-function eventPair(e1, e2, used, rng) {
+function eventPair(e1, e2, used, rng, avoid = null) {
   for (const rhyme of shuffled(RHYMES, rng)) {
+    if (rhyme === avoid) continue;
     for (const t1 of shuffled(shapes(e1), rng)) {
       const a = fill(t1, rhyme, null, used, rng);
       if (!a) continue;
@@ -152,7 +157,8 @@ export function stanza(ev, rng) {
   const used = new Set();
   const take = (pair) => { for (const l of pair) for (const e of l) used.add(e.w); return pair; };
   const p1 = take((ev[0] && eventPair(ev[0], ev[2], used, rng)) || couplet(used, rng));
-  const p2 = take((ev[1] && eventPair(ev[1], ev[3], used, rng)) || couplet(used, rng));
+  const a = p1[0][p1[0].length - 1].r;
+  const p2 = take((ev[1] && eventPair(ev[1], ev[3], used, rng, a)) || couplet(used, rng, a));
   const entries = [p1[0], p2[0], p1[1], p2[1]];
   const told = entries.filter((l) => l.some((e) => e.pos === 'Z')).length;
   const text = entries.map(render).map((l, j) => l + (j === 1 ? ';' : j === 3 ? '.' : ',')).join('\n');
